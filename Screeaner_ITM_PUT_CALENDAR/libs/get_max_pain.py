@@ -166,5 +166,5 @@ def get_max_pain_values(pool_input):
 def get_max_pain_run(tick_list, stock_yahoo, poll_num):
     with Pool(poll_num) as p:
          pool_out = p.map(get_max_pain_values, [(stock_yahoo[tick], tick) for tick in tick_list])
-
          print('pool_out', pool_out)
+         return pool_out

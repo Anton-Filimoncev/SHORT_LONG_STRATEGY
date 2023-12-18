@@ -138,7 +138,7 @@ def market_stage_ticker(pool_input):
 
         Regimes_hist['Regime'] = Regimes_hist['Regime'].replace(period_set_hist)
 
-        IV_Regime = Regimes_plot['Regime'].iloc[-1]
+        IV_Regime = float(Regimes_plot['Regime'].iloc[-1])
         HV_Regime = Regimes_hist['Regime'].iloc[-1]
         IV_Median = Regimes_plot[int(len(Regimes_plot) / 2):]['close'].median()
         HV_Median = Regimes_hist[int(len(Regimes_hist) / 2):]['close'].median()
@@ -164,6 +164,9 @@ def market_stage_ticker(pool_input):
         HV_100 = 'EMPTY'
 
     ib.disconnect()
+
+    print('IV_Regime: ', IV_Regime,
+          '  =============================================')
 
     return IV_percentile, IV_Regime, IV_Median, IV, HV_Regime, HV_20, HV_50, HV_100
 

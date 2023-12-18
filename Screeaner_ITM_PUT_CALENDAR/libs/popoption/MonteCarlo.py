@@ -66,7 +66,7 @@ def monteCarlo(underlying, rate, sigma, days_to_expiration, closing_days_array, 
             noise = volatility * W
             y = noise + signal
             stock_price = underlying * np.exp(y)  # Stock price on current day
-            # print(stock_price)
+            # print(underlying)
             epsilon = np.random.randn()
             epsilon_cum += epsilon
             t_cum += dt

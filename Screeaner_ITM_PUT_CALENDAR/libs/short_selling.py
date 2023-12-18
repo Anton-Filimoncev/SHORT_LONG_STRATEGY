@@ -545,8 +545,8 @@ def get_current_regime(pool_input):
         regime_list.append(relative_regime_val)
 
     except:
-        regime_list.append(np.nan)
-        regime_list.append(np.nan)
+        regime_list.append('Empty')
+        regime_list.append('Empty')
         # regime_val = np.nan
         # relative_regime_val = np.nan
 

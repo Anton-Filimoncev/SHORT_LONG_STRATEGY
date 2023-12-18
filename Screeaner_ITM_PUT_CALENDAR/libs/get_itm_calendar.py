@@ -18,6 +18,7 @@ import math
 import mibian
 import tqdm
 from multiprocessing import Pool
+from .popoption.PutCalendar import putCalendar
 pd.options.mode.chained_assignment = None
 
 
@@ -116,7 +117,9 @@ def get_abs_return(price_array, type_option, days_to_exp, days_to_exp_short, his
     proba_list = []
     price_gen_list = []
 
+
     for stock_price_num in range(len(price_array)):
+
         try:
             P_below = stats.norm.cdf(
                 (np.log(price_array[stock_price_num] / current_price) / (
@@ -253,100 +256,147 @@ def get_data_and_calc_long(pool_input):
 
     return score
 
+def get_proba_30_calendar(current_price, yahoo_data, put_long_strike, put_long_price, put_short_strike, put_short_price,
+                          sigma_short, sigma_long, days_to_expiration_short, days_to_expiration_long, risk_rate ):
+    closing_days_array = [days_to_expiration_short]
+    percentage_array = [30]
+    trials = 3000
+
+    proba_50 = putCalendar(current_price, sigma_short, sigma_long, risk_rate, trials, days_to_expiration_short,
+                days_to_expiration_long, closing_days_array, percentage_array, put_long_strike,
+                put_long_price, put_short_strike, put_short_price, yahoo_data)
+
+    return proba_50
+
 def get_data_and_calc_itm_calendar(pool_input):
     KEY = "ckZsUXdiMTZEZVQ3a25TVEFtMm9SeURsQ1RQdk5yWERHS0RXaWNpWVJ2cz0"
-    # try:
-    start_df, stock_yahoo_short = pool_input
+    try:
+        start_df, stock_yahoo_short = pool_input
 
-    tick = start_df['Symbol']
-    current_price = float(start_df['Current Price'])
-    hv = float(start_df['HV 100'])
-    print(tick)
+        tick = start_df['Symbol']
 
-    # ----------- get Exp date SELL  -----------------
+        hv = float(start_df['HV 100'])
+        print(tick)
 
-    url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
-    response_exp = requests.request("GET", url_exp).json()
-    exp_date_df = pd.DataFrame(response_exp)
-    exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
-    exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
-    days_to_exp_short = nearest_equal_abs(exp_date_df['Days_to_exp'], 300)
-    needed_exp_date_short = \
-    exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp_short]['expirations'].reset_index(drop=True).iloc[0].date()
+        # ----------- get Exp date SELL  -----------------
 
-    # ----------- get Exp date BUY  -----------------
+        url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
+        response_exp = requests.request("GET", url_exp).json()
+        exp_date_df = pd.DataFrame(response_exp)
+        exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
+        exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
+        days_to_exp_short = nearest_equal_abs(exp_date_df['Days_to_exp'], 300)
+        needed_exp_date_short = \
+        exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp_short]['expirations'].reset_index(drop=True).iloc[0].date()
 
-    url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
-    response_exp = requests.request("GET", url_exp).json()
-    exp_date_df = pd.DataFrame(response_exp)
-    exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
-    exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
-    days_to_exp_long = nearest_equal_abs(exp_date_df['Days_to_exp'], 600)
-    needed_exp_date_long = \
-    exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp_long]['expirations'].reset_index(drop=True).iloc[0].date()
+        # ----------- get Exp date BUY  -----------------
 
-    # ----------- Chains -----------------
-    url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date_short}&side=put&token={KEY}"
-    response_chains = requests.request("GET", url).json()
-    chains_short = pd.DataFrame(response_chains)
-    chains_short['expiration'] = pd.to_datetime(chains_short['expiration'], unit='s')
-    chains_short['Days_to_exp'] = (chains_short['expiration'] - datetime.datetime.now()).dt.days
+        url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
+        response_exp = requests.request("GET", url_exp).json()
+        exp_date_df = pd.DataFrame(response_exp)
+        exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
+        exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
+        days_to_exp_long = nearest_equal_abs(exp_date_df['Days_to_exp'], 600)
+        needed_exp_date_long = \
+        exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp_long]['expirations'].reset_index(drop=True).iloc[0].date()
+
+        # ----------- Chains -----------------
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date_short}&side=put&token={KEY}"
+        response_chains = requests.request("GET", url).json()
+        chains_short = pd.DataFrame(response_chains)
+        chains_short['expiration'] = pd.to_datetime(chains_short['expiration'], unit='s')
+        chains_short['Days_to_exp'] = (chains_short['expiration'] - datetime.datetime.now()).dt.days
+
+        current_price = chains_short['underlyingPrice'].iloc[0]
+        exp_move = hv * current_price * math.sqrt(180 / 365)
+
+        # print('exp_move')
+        # print(exp_move)
+        # print(current_price-exp_move)
+
+        print(chains_short['strike'])
+
+        needed_strike_sell = nearest_equal_abs(chains_short['strike'], current_price+exp_move)
+        print('strike', needed_strike_sell)
+        print('exp_move', exp_move)
+        print('current_price', current_price)
+        needed_short = chains_short[chains_short['strike'] == needed_strike_sell].reset_index(drop=True).iloc[0]
+        # needed_short = all_needed_exp_df_sell[all_needed_exp_df_sell['iv'] == all_needed_exp_df_sell['iv'].max()].iloc[0]
 
 
-    exp_move = hv * current_price * math.sqrt(180 / 365)
+        # ----------- Chains -----------------
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date_long}&side=put&token={KEY}"
+        response_chains = requests.request("GET", url).json()
+        chains_long = pd.DataFrame(response_chains)
+        chains_long['expiration'] = pd.to_datetime(chains_long['expiration'], unit='s')
+        chains_long['Days_to_exp'] = (chains_long['expiration'] - datetime.datetime.now()).dt.days
 
-    # print('exp_move')
-    # print(exp_move)
-    # print(current_price-exp_move)
+        needed_long = chains_long[chains_long['strike'] == needed_strike_sell].reset_index(drop=True).iloc[0]
 
-    needed_strike_sell = nearest_equal_abs(chains_short['strike'], current_price+exp_move)
-    needed_short = chains_short[chains_short['strike'] == needed_strike_sell]
-    # needed_short = all_needed_exp_df_sell[all_needed_exp_df_sell['iv'] == all_needed_exp_df_sell['iv'].max()].iloc[0]
+        #  300 и 600 дней
+        # print(needed_long)
+
+        debet = needed_long['ask'] - needed_short['bid']
+
+        # Считаем expected return позиции на последний день экспирации шорта
+        vol_put_short = needed_short['iv']
+        vol_put_long = needed_long['iv']
+        days_to_exp_short = needed_short['Days_to_exp']
+        days_to_exp_long = needed_long['Days_to_exp'] - needed_short['Days_to_exp']
+        strike_put_short = needed_strike_sell
+        strike_put_long = needed_strike_sell
+        prime_put_short = needed_short['bid']
+        prime_put_long = needed_long['ask']
+        # print('current_price', current_price)
+        # print('hv', hv)
+        # print('vol_put_short', vol_put_short)
+        # print('vol_put_long', vol_put_long)
+        # print('days_to_exp_long', days_to_exp_long)
+        # print('strike_put_short', strike_put_short)
+        # print('strike_put_long', strike_put_long)
+        # print('prime_put_short', prime_put_short)
+        # print('prime_put_long', prime_put_long)
+
+        print('---------- needed_short -----------------')
+        print(needed_short)
+        print('---------- needed_long -----------------')
+        print(needed_long)
+
+        expected_return = expected_return_calc(vol_put_short, vol_put_long, needed_strike_sell, hv, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short)
 
 
-    # ----------- Chains -----------------
-    url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date_long}&side=put&token={KEY}"
-    response_chains = requests.request("GET", url).json()
-    chains_long = pd.DataFrame(response_chains)
-    chains_long['expiration'] = pd.to_datetime(chains_long['expiration'], unit='s')
-    chains_long['Days_to_exp'] = (chains_long['expiration'] - datetime.datetime.now()).dt.days
 
-    needed_long = chains_long[chains_long['strike'] == needed_strike_sell]
+        c = mibian.BS([strike_put_long, strike_put_long, 4.8, days_to_exp_long], volatility=vol_put_long * 100)
+        price_up_long = c.putPrice
 
-    #  300 и 600 дней
-    # print(needed_long)
+        print('price_up_long', price_up_long)
+        print('current_price', current_price, type(current_price))
+        print('stock_yahoo_short', stock_yahoo_short[tick])
+        print('needed_long strike',
+              needed_long['strike'])
+        print('needed_long price', needed_long['ask'])
+        print('needed_short strike', needed_short['strike'])
+        print('needed_short price', needed_short['bid'])
+        print('needed_short iv', needed_short['iv']*100)
+        print('needed_long iv', needed_long['iv']*100)
+        print('days_to_exp_short', days_to_exp_short)
+        print('days_to_exp_long', days_to_exp_long)
 
-    debet = needed_long['ask'] - needed_short['bid']
+        proba_30, avg_dtc = get_proba_30_calendar(current_price, stock_yahoo_short[tick], needed_long['strike'], needed_long['ask'],
+                              needed_short['strike'], needed_short['bid'],  needed_short['iv']*100, needed_long['iv']*100,
+                                                  days_to_exp_short, needed_long['Days_to_exp'], 4)
 
-    # Считаем expected return позиции на последний день экспирации шорта
-    vol_put_short = needed_short['iv']
-    vol_put_long = needed_long['iv']
-    days_to_exp_short = needed_short['Days_to_exp']
-    days_to_exp_long = needed_long['Days_to_exp'] - needed_short['Days_to_exp']
-    strike_put_short = needed_short['strike']
-    strike_put_long = needed_long['strike']
-    prime_put_short = needed_short['bid']
-    prime_put_long = needed_long['ask']
-    # print('current_price', current_price)
-    # print('hv', hv)
-    # print('vol_put_short', vol_put_short)
-    # print('vol_put_long', vol_put_long)
-    # print('days_to_exp_long', days_to_exp_long)
-    # print('strike_put_short', strike_put_short)
-    # print('strike_put_long', strike_put_long)
-    # print('prime_put_short', prime_put_short)
-    # print('prime_put_long', prime_put_long)
+        print('proba_30', proba_30)
+        # Считаем итоговый score (ожидаемый ROC в годовом формате) = (expected return/(debet*100)/DTE short * 365
+        # caledar_put_score = (expected_return/(debet*100))/needed_short['Days_to_exp']*365
+        # Считаем RR = profit 30/open cost
+        RR = (price_up_long*0.3) / abs(needed_short['bid']-needed_long['ask'])
 
-    expected_return = expected_return_calc(vol_put_short, vol_put_long, needed_strike_sell, hv, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short)
+    except:
+        RR, needed_strike_sell, proba_30, expected_return = np.nan, np.nan, np.nan, np.nan
+        pass
 
-    print('expected_return', expected_return)
-
-    # Считаем итоговый score (ожидаемый ROC в годовом формате) = (expected return/(debet*100)/DTE short * 365
-
-    caledar_put_score = (expected_return/(debet*100))/needed_short['Days_to_exp']*365
-    print('caledar_put_score', caledar_put_score)
-
-    return [caledar_put_score, expected_return]
+    return RR, needed_strike_sell, proba_30, expected_return
 
 
 def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num):
@@ -355,8 +405,17 @@ def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num):
     print('---------------------------')
 
     with Pool(poll_num) as p:
-        bear_cal_out = p.map(get_data_and_calc_itm_calendar, [(active_stock_df.iloc[i], stock_yahoo) for i in range(len(active_stock_df))])
+        itm_calendar_out = p.map(get_data_and_calc_itm_calendar, [(active_stock_df.iloc[i], stock_yahoo) for i in range(len(active_stock_df))])
 
-        bear_cal_out, expected_return = zip(*bear_cal_out)
+    RR, needed_strike_sell, proba_30, expected_return = zip(*itm_calendar_out)
+    RR = np.array([*RR])
+    RR = np.reshape(RR, len(RR))
+    needed_strike_sell = np.array([*needed_strike_sell])
+    needed_strike_sell = np.reshape(needed_strike_sell, len(needed_strike_sell))
+    proba_30 = np.array([*proba_30])
+    proba_30 = np.reshape(proba_30, len(proba_30))
+    expected_return = np.array([*expected_return])
+    expected_return = np.reshape(expected_return, len(expected_return))
 
-    return bear_cal_out, expected_return
+
+    return RR, needed_strike_sell, proba_30, expected_return
