@@ -28,7 +28,7 @@ def market_stage_ticker(pool_input):
             ib.connect('127.0.0.1', 4002, clientId=id_num)  # 7497
 
         except:
-            ib.connect('127.0.0.1', 7497, clientId=id_num)
+            ib.connect('127.0.0.1', 7496, clientId=id_num)
 
         try:
 

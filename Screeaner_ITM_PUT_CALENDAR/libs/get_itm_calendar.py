@@ -26,11 +26,11 @@ def nearest_equal_abs(lst, target):
     return min(lst, key=lambda x: abs(abs(x) - target))
 
 
-def option_price_calc(current_price, strike_list, close_exp_date, volatility_list, side):
+def option_price_calc(current_price, strike_list, close_exp_date, volatility_list, side, RISK_RATE):
 
     price_list = []
     for strike, vol in zip(strike_list, volatility_list):
-        c = mibian.BS([current_price, strike, 4, close_exp_date], volatility=vol*100)
+        c = mibian.BS([current_price, strike, RISK_RATE, close_exp_date], volatility=vol*100)
         if side == 'C':
             price_list.append(c.callPrice)
         else:
@@ -111,7 +111,7 @@ def calculate_probability_put(hist_data, nb_simulations, days, lower_bound, uppe
     return below_end_price_list
 
 
-def get_abs_return(price_array, type_option, days_to_exp, days_to_exp_short, history_vol, current_price, strike, prime, vol_opt):
+def get_abs_return(price_array, type_option, days_to_exp, days_to_exp_short, history_vol, current_price, strike, prime, vol_opt, RISK_RATE):
     put_price_list = []
     call_price_list = []
     proba_list = []
@@ -129,9 +129,9 @@ def get_abs_return(price_array, type_option, days_to_exp, days_to_exp_short, his
                         history_vol * math.sqrt(days_to_exp_short / 365))))
             proba_list.append(P_current - P_below)
             if type_option == 'Short':
-                c = mibian.BS([price_array[stock_price_num + 1], strike, 4, 1], volatility=vol_opt * 100)
+                c = mibian.BS([price_array[stock_price_num + 1], strike, RISK_RATE, 1], volatility=vol_opt * 100)
             if type_option == 'Long':
-                c = mibian.BS([price_array[stock_price_num + 1], strike, 4, days_to_exp], volatility=vol_opt * 100)
+                c = mibian.BS([price_array[stock_price_num + 1], strike, RISK_RATE, days_to_exp], volatility=vol_opt * 100)
 
             put_price_list.append(c.putPrice)
             call_price_list.append(c.callPrice)
@@ -154,7 +154,7 @@ def get_abs_return(price_array, type_option, days_to_exp, days_to_exp_short, his
     if type_option == 'Long':
         return ((put_df['put_price'] - prime) * put_df['proba']).sum()
 
-def expected_return_calc(vol_put_short, vol_put_long, current_price, history_vol, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short):
+def expected_return_calc(vol_put_short, vol_put_long, current_price, history_vol, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short, RISK_RATE):
 
     # print('expected_return CALCULATION ...')
 
@@ -162,12 +162,12 @@ def expected_return_calc(vol_put_short, vol_put_long, current_price, history_vol
     # print('price_array', price_array)
     short_finish = get_abs_return(price_array, 'Short', days_to_exp_short, days_to_exp_short, history_vol, current_price, strike_put_short,
                                 prime_put_short,
-                                vol_put_short)
+                                vol_put_short, RISK_RATE)
 
 
     long_finish = get_abs_return(price_array, 'Long', days_to_exp_long, days_to_exp_short, history_vol, current_price, strike_put_long,
                                  prime_put_long,
-                                 vol_put_long)
+                                 vol_put_long, RISK_RATE)
 
     expected_return = (short_finish + long_finish) * 100
 
@@ -257,7 +257,7 @@ def get_data_and_calc_long(pool_input):
     return score
 
 def get_proba_30_calendar(current_price, yahoo_data, put_long_strike, put_long_price, put_short_strike, put_short_price,
-                          sigma_short, sigma_long, days_to_expiration_short, days_to_expiration_long, risk_rate ):
+                          sigma_short, sigma_long, days_to_expiration_short, days_to_expiration_long, risk_rate):
     closing_days_array = [days_to_expiration_short]
     percentage_array = [30]
     trials = 3000
@@ -271,10 +271,9 @@ def get_proba_30_calendar(current_price, yahoo_data, put_long_strike, put_long_p
 def get_data_and_calc_itm_calendar(pool_input):
     KEY = "ckZsUXdiMTZEZVQ3a25TVEFtMm9SeURsQ1RQdk5yWERHS0RXaWNpWVJ2cz0"
     try:
-        start_df, stock_yahoo_short = pool_input
+        start_df, stock_yahoo_short, RISK_RATE = pool_input
 
         tick = start_df['Symbol']
-
         hv = float(start_df['HV 100'])
         print(tick)
 
@@ -362,11 +361,11 @@ def get_data_and_calc_itm_calendar(pool_input):
         print('---------- needed_long -----------------')
         print(needed_long)
 
-        expected_return = expected_return_calc(vol_put_short, vol_put_long, needed_strike_sell, hv, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short)
+        expected_return = expected_return_calc(vol_put_short, vol_put_long, needed_strike_sell, hv, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short, RISK_RATE)
 
 
 
-        c = mibian.BS([strike_put_long, strike_put_long, 4.8, days_to_exp_long], volatility=vol_put_long * 100)
+        c = mibian.BS([strike_put_long, strike_put_long, RISK_RATE, days_to_exp_long], volatility=vol_put_long * 100)
         price_up_long = c.putPrice
 
         print('price_up_long', price_up_long)
@@ -384,7 +383,7 @@ def get_data_and_calc_itm_calendar(pool_input):
 
         proba_30, avg_dtc = get_proba_30_calendar(current_price, stock_yahoo_short[tick], needed_long['strike'], needed_long['ask'],
                               needed_short['strike'], needed_short['bid'],  needed_short['iv']*100, needed_long['iv']*100,
-                                                  days_to_exp_short, needed_long['Days_to_exp'], 4)
+                                                  days_to_exp_short, needed_long['Days_to_exp'], RISK_RATE)
 
         print('proba_30', proba_30)
         # Считаем итоговый score (ожидаемый ROC в годовом формате) = (expected return/(debet*100)/DTE short * 365
@@ -392,20 +391,21 @@ def get_data_and_calc_itm_calendar(pool_input):
         # Считаем RR = profit 30/open cost
         RR = (price_up_long*0.3) / abs(needed_short['bid']-needed_long['ask'])
 
-    except:
+    except Exception as err:
+        print(err)
         RR, needed_strike_sell, proba_30, expected_return = np.nan, np.nan, np.nan, np.nan
         pass
 
     return RR, needed_strike_sell, proba_30, expected_return
 
 
-def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num):
+def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RATE):
     print('---------------------------')
     print('------------- Getting itm Calendar ... --------------')
     print('---------------------------')
 
     with Pool(poll_num) as p:
-        itm_calendar_out = p.map(get_data_and_calc_itm_calendar, [(active_stock_df.iloc[i], stock_yahoo) for i in range(len(active_stock_df))])
+        itm_calendar_out = p.map(get_data_and_calc_itm_calendar, [(active_stock_df.iloc[i], stock_yahoo, RISK_RATE) for i in range(len(active_stock_df))])
 
     RR, needed_strike_sell, proba_30, expected_return = zip(*itm_calendar_out)
     RR = np.array([*RR])
