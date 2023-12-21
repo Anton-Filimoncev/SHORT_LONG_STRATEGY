@@ -136,7 +136,7 @@ if __name__ == "__main__":
         active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RATE
     )
 
-    active_stock_df["Caledar Call Score"] = caledar_call_score
+    active_stock_df["Caledar PUT Score"] = caledar_call_score
     active_stock_df["Strike"] = needed_strike_sell
     active_stock_df["Proba 30"] = proba_30
     active_stock_df["Expected Return"] = expected_return
