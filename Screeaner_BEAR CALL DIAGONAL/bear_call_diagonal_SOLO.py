@@ -18,7 +18,7 @@ import math
 import mibian
 import tqdm
 from multiprocessing import Pool
-from libs.popoption.PutCalendar import putCalendar
+from libs.popoption.CallCalendar import callCalendar
 pd.options.mode.chained_assignment = None
 
 
@@ -195,7 +195,7 @@ def get_data_and_calc_long(pool_input):
                 0].date()
 
             # ----------- Chains -----------------
-            url_call = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&side=put&token={KEY}"
+            url_call = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&side=call&token={KEY}"
             response_chains_call = requests.request("GET", url_call).json()
             chains_call = pd.DataFrame(response_chains_call)
 
@@ -262,7 +262,7 @@ def get_proba_30_calendar(current_price, yahoo_data, put_long_strike, put_long_p
     percentage_array = [30]
     trials = 3000
 
-    proba_50 = putCalendar(current_price, sigma_short, sigma_long, risk_rate, trials, days_to_expiration_short,
+    proba_50 = callCalendar(current_price, sigma_short, sigma_long, risk_rate, trials, days_to_expiration_short,
                 days_to_expiration_long, closing_days_array, percentage_array, put_long_strike,
                 put_long_price, put_short_strike, put_short_price, yahoo_data)
 
@@ -297,7 +297,7 @@ if __name__ == '__main__':
     all_needed_exp_df_sell = pd.DataFrame()
     for exp_date_shortus in exp_dates_short['expirations']:
         # ----------- Chains -----------------
-        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={exp_date_shortus}&side=put&token={KEY}"
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={exp_date_shortus}&side=call&token={KEY}"
         response_chains = requests.request("GET", url).json()
         chains = pd.DataFrame(response_chains)
         chains['expiration'] = pd.to_datetime(chains['expiration'], unit='s')
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     print(exp_move)
     print(current_price-exp_move)
 
-    needed_strike_sell = nearest_equal_abs(all_needed_exp_df_sell['strike'], current_price - exp_move)
+    needed_strike_sell = nearest_equal_abs(all_needed_exp_df_sell['strike'], current_price + exp_move)
 
     all_needed_exp_df_sell = all_needed_exp_df_sell[all_needed_exp_df_sell['strike'] == needed_strike_sell]
     needed_short = all_needed_exp_df_sell[all_needed_exp_df_sell['iv'] == all_needed_exp_df_sell['iv'].max()].iloc[0]
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     all_needed_exp_df_buy = pd.DataFrame()
     for exp_date_longus in exp_dates_long['expirations']:
         # ----------- Chains -----------------
-        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={exp_date_longus}&side=put&token={KEY}"
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={exp_date_longus}&side=call&token={KEY}"
         response_chains = requests.request("GET", url).json()
         chains = pd.DataFrame(response_chains)
         chains['expiration'] = pd.to_datetime(chains['expiration'], unit='s')
