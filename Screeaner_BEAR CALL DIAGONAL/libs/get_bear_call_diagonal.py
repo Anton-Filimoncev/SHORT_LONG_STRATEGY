@@ -305,7 +305,7 @@ def get_data_and_calc_bear_call(pool_input):
 
         print(chains_short['delta'])
 
-        needed_delta_sell = nearest_equal_abs(chains_short['delta'], abs(0.6))
+        needed_delta_sell = nearest_equal_abs(chains_short['delta'].dropna(), abs(0.6))
 
         print('needed_delta_sell')
         print(needed_delta_sell)
@@ -333,7 +333,7 @@ def get_data_and_calc_bear_call(pool_input):
         chains_long['expiration'] = pd.to_datetime(chains_long['expiration'], unit='s')
         chains_long['Days_to_exp'] = (chains_long['expiration'] - datetime.datetime.now()).dt.days
 
-        needed_delta_buy = nearest_equal_abs(chains_long['delta'], abs(0.3))
+        needed_delta_buy = nearest_equal_abs(chains_long['delta'].dropna(), abs(0.3))
 
         needed_long = chains_long[chains_long['delta'] == needed_delta_buy].iloc[0]
 

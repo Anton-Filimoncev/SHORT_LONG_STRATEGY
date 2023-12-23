@@ -43,41 +43,41 @@ if __name__ == "__main__":
     # Загружаем ценовые ряды из яхуу
     stock_yahoo = yf.download(tick_list, group_by="ticker")
 
-    # # Получаем волатильность с ИБ
-    # (
-    #     IV_percentile,
-    #     IV_Regime,
-    #     IV_Median,
-    #     IV,
-    #     HV_20,
-    #     HV_50,
-    #     HV_100,
-    #     HV_Regime,
-    # ) = get_ib_run(tick_list, poll_num)
-    # active_stock_df["IV % year"] = IV_percentile
-    # active_stock_df["IV DIA year"] = IV_Regime
-    # active_stock_df["IV median 6 m"] = IV_Median
-    # active_stock_df["IV ATM"] = IV
-    # active_stock_df["HV 20"] = HV_20
-    # active_stock_df["HV 50"] = HV_50
-    # active_stock_df["HV 100"] = HV_100
-    # active_stock_df["HV DIA"] = HV_Regime
-    # time.sleep(3)
-    # print(active_stock_df)
-    # active_stock_df.to_excel("active_stock_df.xlsx")
-    # # ###############################################
-    # print(active_stock_df['IV DIA year'])
-    # for i in range(len(active_stock_df['IV DIA year'])):
-    #     try:
-    #         active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
-    #     except:
-    #         active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
-    #         pass
-    #
-    # # переопределяем список тикеров после отсева по волатильности
-    # active_stock_df = active_stock_df[active_stock_df['IV DIA year'] >= 2].reset_index(drop=True)
-    # tick_list = active_stock_df["Symbol"].values.tolist()
-    # print(active_stock_df)
+    # Получаем волатильность с ИБ
+    (
+        IV_percentile,
+        IV_Regime,
+        IV_Median,
+        IV,
+        HV_20,
+        HV_50,
+        HV_100,
+        HV_Regime,
+    ) = get_ib_run(tick_list, poll_num)
+    active_stock_df["IV % year"] = IV_percentile
+    active_stock_df["IV DIA year"] = IV_Regime
+    active_stock_df["IV median 6 m"] = IV_Median
+    active_stock_df["IV ATM"] = IV
+    active_stock_df["HV 20"] = HV_20
+    active_stock_df["HV 50"] = HV_50
+    active_stock_df["HV 100"] = HV_100
+    active_stock_df["HV DIA"] = HV_Regime
+    time.sleep(3)
+    print(active_stock_df)
+    active_stock_df.to_excel("active_stock_df.xlsx")
+    # ###############################################
+    print(active_stock_df['IV DIA year'])
+    for i in range(len(active_stock_df['IV DIA year'])):
+        try:
+            active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
+        except:
+            active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
+            pass
+
+    # переопределяем список тикеров после отсева по волатильности
+    active_stock_df = active_stock_df[active_stock_df['IV DIA year'] >= 2].reset_index(drop=True)
+    tick_list = active_stock_df["Symbol"].values.tolist()
+    print(active_stock_df)
 
     # Получаем краткосрочный тренд и RSI
     time.sleep(3)

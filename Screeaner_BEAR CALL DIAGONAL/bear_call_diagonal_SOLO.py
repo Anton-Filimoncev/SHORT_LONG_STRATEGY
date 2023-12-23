@@ -11,14 +11,10 @@ import yfinance as yf
 import pandas_ta as pta
 import datetime
 from dateutil.relativedelta import relativedelta
-import aiohttp
-import asyncio
 import requests
 import math
 import mibian
-import tqdm
-from multiprocessing import Pool
-from libs.popoption.CallCalendar import callCalendar
+from libs.popoption.CallDiagonal import callDiagonal
 pd.options.mode.chained_assignment = None
 
 
@@ -256,13 +252,13 @@ def get_data_and_calc_long(pool_input):
 
     return score
 
-def get_proba_30_calendar(current_price, yahoo_data, put_long_strike, put_long_price, put_short_strike, put_short_price,
+def get_proba_50_calendar(current_price, yahoo_data, put_long_strike, put_long_price, put_short_strike, put_short_price,
                           sigma_short, sigma_long, days_to_expiration_short, days_to_expiration_long, risk_rate):
     closing_days_array = [days_to_expiration_short]
-    percentage_array = [30]
+    percentage_array = [50]
     trials = 3000
 
-    proba_50 = callCalendar(current_price, sigma_short, sigma_long, risk_rate, trials, days_to_expiration_short,
+    proba_50 = callDiagonal(current_price, sigma_short, sigma_long, risk_rate, trials, days_to_expiration_short,
                 days_to_expiration_long, closing_days_array, percentage_array, put_long_strike,
                 put_long_price, put_short_strike, put_short_price, yahoo_data)
 
@@ -290,33 +286,27 @@ if __name__ == '__main__':
     exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
     exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
     # days_to_exp = nearest_equal_abs(exp_date_df['Days_to_exp'], 300)
-    exp_dates_short = exp_date_df[exp_date_df['Days_to_exp'] >= 20]
-    exp_dates_short = exp_dates_short[exp_dates_short['Days_to_exp'] <= 90]
+    days_to_exp_short = nearest_equal_abs(exp_date_df['Days_to_exp'], 30)
+    needed_exp_date_short = \
+    exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp_short]['expirations'].reset_index(drop=True).iloc[0].date()
 
+    print(needed_exp_date_short)
 
-    all_needed_exp_df_sell = pd.DataFrame()
-    for exp_date_shortus in exp_dates_short['expirations']:
-        # ----------- Chains -----------------
-        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={exp_date_shortus}&side=call&token={KEY}"
-        response_chains = requests.request("GET", url).json()
-        chains = pd.DataFrame(response_chains)
-        chains['expiration'] = pd.to_datetime(chains['expiration'], unit='s')
-        chains['Days_to_exp'] = (chains['expiration'] - datetime.datetime.now()).dt.days
-        # chains = chains[chains['strike'] < current_price * 1.20]
-        # chains = chains[chains['strike'] > current_price * 0.8].reset_index(drop=True)
-        all_needed_exp_df_sell = pd.concat([all_needed_exp_df_sell, chains])
+    # ----------- Chains -----------------
+    url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date_short}&side=call&token={KEY}"
+    print(url)
+    response_chains = requests.request("GET", url).json()
+    chains_short = pd.DataFrame(response_chains)
+    chains_short['expiration'] = pd.to_datetime(chains_short['expiration'], unit='s')
+    chains_short['Days_to_exp'] = (chains_short['expiration'] - datetime.datetime.now()).dt.days
 
-    current_price = all_needed_exp_df_sell['underlyingPrice'].iloc[0]
-    exp_move = 0.5 * hv * current_price * math.sqrt(60 / 365)
+    print(chains_short['delta'])
 
-    print('exp_move')
-    print(exp_move)
-    print(current_price-exp_move)
+    needed_delta_sell = nearest_equal_abs(chains_short['delta'].dropna(), abs(0.6))
 
-    needed_strike_sell = nearest_equal_abs(all_needed_exp_df_sell['strike'], current_price + exp_move)
-
-    all_needed_exp_df_sell = all_needed_exp_df_sell[all_needed_exp_df_sell['strike'] == needed_strike_sell]
-    needed_short = all_needed_exp_df_sell[all_needed_exp_df_sell['iv'] == all_needed_exp_df_sell['iv'].max()].iloc[0]
+    print('needed_delta_sell')
+    print(needed_delta_sell)
+    needed_short = chains_short[chains_short['delta'] == needed_delta_sell].iloc[0]
 
     print('needed_short')
     print(needed_short)
@@ -325,32 +315,24 @@ if __name__ == '__main__':
 
     url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
     response_exp = requests.request("GET", url_exp).json()
-    print(response_exp)
     exp_date_df = pd.DataFrame(response_exp)
     exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
     exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
-    exp_dates_long = exp_date_df[exp_date_df['Days_to_exp'] >= needed_short['Days_to_exp'] + 30]
-    exp_dates_long = exp_dates_long[exp_dates_long['Days_to_exp'] <= 200]
+    days_to_exp_long = nearest_equal_abs(exp_date_df['Days_to_exp'], 55)
+    needed_exp_date_long = \
+        exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp_long]['expirations'].reset_index(drop=True).iloc[
+            0].date()
 
-    all_needed_exp_df_buy = pd.DataFrame()
-    for exp_date_longus in exp_dates_long['expirations']:
-        # ----------- Chains -----------------
-        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={exp_date_longus}&side=call&token={KEY}"
-        response_chains = requests.request("GET", url).json()
-        chains = pd.DataFrame(response_chains)
-        chains['expiration'] = pd.to_datetime(chains['expiration'], unit='s')
-        chains['Days_to_exp'] = (chains['expiration'] - datetime.datetime.now()).dt.days
-        # chains = chains[chains['strike'] < current_price * 1.20]
-        # chains = chains[chains['strike'] > current_price * 0.8].reset_index(drop=True)
-        all_needed_exp_df_buy = pd.concat([all_needed_exp_df_buy, chains])
+    # ----------- Chains -----------------
+    url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date_long}&side=call&token={KEY}"
+    response_chains = requests.request("GET", url).json()
+    chains_long = pd.DataFrame(response_chains)
+    chains_long['expiration'] = pd.to_datetime(chains_long['expiration'], unit='s')
+    chains_long['Days_to_exp'] = (chains_long['expiration'] - datetime.datetime.now()).dt.days
 
-    print('all_needed_exp_df_buy')
-    print(all_needed_exp_df_buy)
+    needed_delta_buy = nearest_equal_abs(chains_long['delta'].dropna(), abs(0.3))
 
-    needed_strike_buy = nearest_equal_abs(all_needed_exp_df_buy['strike'], needed_strike_sell)
-
-    all_needed_exp_df_buy = all_needed_exp_df_buy[all_needed_exp_df_buy['strike'] == needed_strike_buy]
-    needed_long = all_needed_exp_df_buy[all_needed_exp_df_buy['iv'] == all_needed_exp_df_buy['iv'].min()].iloc[0]
+    needed_long = chains_long[chains_long['delta'] == needed_delta_buy].iloc[0]
 
     print('needed_long')
     print(needed_long)
@@ -358,7 +340,10 @@ if __name__ == '__main__':
     # print('needed_long')
     # print(needed_long)
 
-    debet = needed_long['ask'] - needed_short['bid']
+    credit = needed_short['bid'] - needed_long['ask']
+    margin = needed_long['strike'] - needed_short['strike'] - credit
+
+    rr_ratio = credit / margin
 
     # Считаем expected return позиции на последний день экспирации шорта
     vol_call_short = needed_short['iv']
@@ -369,25 +354,38 @@ if __name__ == '__main__':
     strike_call_long = needed_long['strike']
     prime_call_short = needed_short['bid']
     prime_call_long = needed_long['ask']
-    print('current_price', current_price)
-    print('hv', hv)
-    print('vol_call_short', vol_call_short)
-    print('vol_call_long', vol_call_long)
-    print('days_to_exp_long', days_to_exp_long)
-    print('strike_call_short', strike_call_short)
-    print('strike_call_long', strike_call_long)
-    print('prime_call_short', prime_call_short)
-    print('prime_call_long', prime_call_long)
+    # print('current_price', current_price)
+    # print('hv', hv)
+    # print('vol_call_short', vol_call_short)
+    # print('vol_call_long', vol_call_long)
+    # print('days_to_exp_long', days_to_exp_long)
+    # print('strike_call_short', strike_call_short)
+    # print('strike_call_long', strike_call_long)
+    # print('prime_call_short', prime_call_short)
+    # print('prime_call_long', prime_call_long)
 
     expected_return = expected_return_calc(vol_call_short, vol_call_long, current_price, hv, days_to_exp_short,
                                            days_to_exp_long, strike_call_long, strike_call_short, prime_call_long,
                                            prime_call_short, RISK_RATE)
 
-    # Считаем итоговый score (ожидаемый ROC в годовом формате) = (expected return/(debet*100)/DTE short * 365
+    print('expected_return', expected_return)
+    print('rr_ratio', rr_ratio)
 
-    caledar_call_score = (expected_return / (debet * 100)) / needed_short['Days_to_exp'] * 365
 
-    print('caledar_call_score', caledar_call_score)
+
+
+    proba_50, avg_dtc = get_proba_50_calendar(current_price, yahoo_data, needed_long['strike'],
+                                              needed_long['ask'],
+                                              needed_short['strike'], needed_short['bid'], needed_short['iv'] * 100,
+                                              needed_long['iv'] * 100,
+                                              days_to_exp_short, needed_long['Days_to_exp'], RISK_RATE)
+
+    print('*' * 150)
+    print('*' * 150)
+    print('*' * 150)
+
+    print('Expected_Return', expected_return)
+    print('Proba_50', proba_50)
 
     print_df = pd.DataFrame({
         'Symbol': [needed_short['underlying']],
@@ -395,43 +393,9 @@ if __name__ == '__main__':
         'Long Strike': [needed_long['strike']],
         'EXP_date Short': [needed_short['expiration'].date()],
         'EXP_date Long': [needed_long['expiration'].date()],
-        'Expected_Return': [expected_return],
-    })
-    print(print_df)
-    # print(return_50 * prob)
-
-
-    print('current_price', current_price, type(current_price))
-    print('needed_long strike',
-          needed_long['strike'])
-    print('needed_long price', needed_long['ask'])
-    print('needed_short strike', needed_short['strike'])
-    print('needed_short price', needed_short['bid'])
-    print('needed_short iv', needed_short['iv']*100)
-    print('needed_long iv', needed_long['iv']*100)
-    print('days_to_exp_short', days_to_exp_short)
-    print('days_to_exp_long', days_to_exp_long)
-
-    proba_30, avg_dtc = get_proba_30_calendar(current_price, yahoo_data, needed_long['strike'], needed_long['ask'],
-                          needed_short['strike'], needed_short['bid'],  needed_short['iv']*100, needed_long['iv']*100,
-                                              days_to_exp_short, needed_long['Days_to_exp'], RISK_RATE)
-
-
-    print_df = pd.DataFrame({
-
-        'Short Strike': [needed_short['strike']],
-        'Long Strike': [needed_long['strike']],
-        'EXP_date Short': [needed_short['expiration'].date()],
-        'EXP_date Long': [needed_long['expiration'].date()],
-        'Expected_Return': [round(expected_return, 2)],
     })
 
-    print('*'*50)
-    print('proba_30: ', proba_30)
     print(print_df)
-
-
-
 
 
 

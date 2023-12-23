@@ -46,6 +46,9 @@ def scraper_earnings(tickers_list):
 
 
 def run_earnings_get(ticker_list):
+    print("---------------------------")
+    print("------------- Getting Earnings ... --------------")
+    print("---------------------------")
     earnings_list, evr_list = scraper_earnings(ticker_list)
 
     FINISH_DF = pd.DataFrame(
