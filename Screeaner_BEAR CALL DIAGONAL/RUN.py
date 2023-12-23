@@ -11,6 +11,7 @@ from libs.get_up_down_volume import up_down_volume_run
 from libs.get_bear_call_diagonal import bear_call_diagonal_run
 from libs.get_max_pain import get_max_pain_run
 from libs.get_momentum import get_momentum_run
+from libs.get_earnings import run_earnings_get
 # from get_mprp_call import mprp_call_run
 import time
 import os
@@ -18,7 +19,7 @@ from pathlib import Path
 
 
 if __name__ == "__main__":
-    poll_num = 10  # Количество потоков
+    poll_num = 8  # Количество потоков
     # Загружаем датафрейм с компаниями
 
     RISK_RATE = 4
@@ -37,45 +38,47 @@ if __name__ == "__main__":
         symb = active_stock_df["Symbol"].iloc[num]
         if "." in symb:
             active_stock_df["Symbol"].iloc[num] = symb.replace(".", "-")
-
+    #
     tick_list = active_stock_df["Symbol"].values.tolist()
     # Загружаем ценовые ряды из яхуу
     stock_yahoo = yf.download(tick_list, group_by="ticker")
 
-    # Получаем волатильность с ИБ
-    (
-        IV_percentile,
-        IV_Regime,
-        IV_Median,
-        IV,
-        HV_20,
-        HV_50,
-        HV_100,
-        HV_Regime,
-    ) = get_ib_run(tick_list, poll_num)
-    active_stock_df["IV % year"] = IV_percentile
-    active_stock_df["IV DIA year"] = IV_Regime
-    active_stock_df["IV median 6 m"] = IV_Median
-    active_stock_df["IV ATM"] = IV
-    active_stock_df["HV 20"] = HV_20
-    active_stock_df["HV 50"] = HV_50
-    active_stock_df["HV 100"] = HV_100
-    active_stock_df["HV DIA"] = HV_Regime
-    time.sleep(3)
-    print(active_stock_df)
-    active_stock_df.to_excel("active_stock_df.xlsx")
-    # ###############################################
-    print(active_stock_df['IV DIA year'])
-    for i in range(len(active_stock_df['IV DIA year'])):
-        try:
-            active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
-        except:
-            pass
+    # # Получаем волатильность с ИБ
+    # (
+    #     IV_percentile,
+    #     IV_Regime,
+    #     IV_Median,
+    #     IV,
+    #     HV_20,
+    #     HV_50,
+    #     HV_100,
+    #     HV_Regime,
+    # ) = get_ib_run(tick_list, poll_num)
+    # active_stock_df["IV % year"] = IV_percentile
+    # active_stock_df["IV DIA year"] = IV_Regime
+    # active_stock_df["IV median 6 m"] = IV_Median
+    # active_stock_df["IV ATM"] = IV
+    # active_stock_df["HV 20"] = HV_20
+    # active_stock_df["HV 50"] = HV_50
+    # active_stock_df["HV 100"] = HV_100
+    # active_stock_df["HV DIA"] = HV_Regime
+    # time.sleep(3)
+    # print(active_stock_df)
+    # active_stock_df.to_excel("active_stock_df.xlsx")
+    # # ###############################################
+    # print(active_stock_df['IV DIA year'])
+    # for i in range(len(active_stock_df['IV DIA year'])):
+    #     try:
+    #         active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
+    #     except:
+    #         active_stock_df['IV DIA year'].iloc[i] = float(active_stock_df['IV DIA year'].iloc[i])
+    #         pass
+    #
+    # # переопределяем список тикеров после отсева по волатильности
+    # active_stock_df = active_stock_df[active_stock_df['IV DIA year'] >= 2].reset_index(drop=True)
+    # tick_list = active_stock_df["Symbol"].values.tolist()
+    # print(active_stock_df)
 
-    # переопределяем список тикеров после отсева по волатильности
-    active_stock_df = active_stock_df[active_stock_df['IV DIA year'] >= 2].reset_index(drop=True)
-    tick_list = active_stock_df["Symbol"].values.tolist()
-    print(active_stock_df)
     # Получаем краткосрочный тренд и RSI
     time.sleep(3)
     trend_signal_list, rsi_list, cur_price_list = get_tech_run(stock_yahoo, tick_list)
@@ -84,11 +87,17 @@ if __name__ == "__main__":
     active_stock_df["RSI"] = rsi_list
     active_stock_df["Trend"] = trend_signal_list
     print(active_stock_df)
-    # #
-    # time.sleep(3)
-    # # Получаем таблицы с трендом в папку Scored_dfs файлы score_LONG.xlsx и score_SHORT.xlsx
-    # # качаем приведенные данные по сплиту и дивам с яхи
     #
+
+    # Получаем дни до отчетности и EVR
+    earnings_list, evr_list = run_earnings_get(tick_list)
+    active_stock_df["Earnings"] = earnings_list
+    active_stock_df["EVR"] = evr_list
+
+    time.sleep(3)
+    # Получаем таблицы с трендом в папку Scored_dfs файлы score_LONG.xlsx и score_SHORT.xlsx
+    # качаем приведенные данные по сплиту и дивам с яхи
+
     stock_yahoo_regime = yf.download(tick_list, group_by="ticker", interval="1d", auto_adjust=True)
     regime_list, relative_regime_list = get_company_signals_run(
         stock_yahoo_regime, tick_list, poll_num
@@ -118,12 +127,11 @@ if __name__ == "__main__":
     print(active_stock_df['HV 100'])
 
     # Для тикеров с 1 первым диапазоном и релативным регтаймом -1 - собираем медвежий календарь
-    caledar_call_score, needed_strike_sell, proba_30, expected_return = bear_call_diagonal_run(
+    rr_ratio,  proba_30, expected_return = bear_call_diagonal_run(
         active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RATE
     )
 
-    active_stock_df["Caledar Call Score"] = caledar_call_score
-    active_stock_df["Strike"] = needed_strike_sell
+    active_stock_df["Reward/Risk Ratio"] = rr_ratio
     active_stock_df["Proba 30"] = proba_30
     active_stock_df["Expected Return"] = expected_return
 

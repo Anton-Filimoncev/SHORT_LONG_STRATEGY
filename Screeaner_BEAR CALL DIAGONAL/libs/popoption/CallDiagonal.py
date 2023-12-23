@@ -17,7 +17,7 @@ def bsm_debit(sim_price, strikes, rate, time_fraction_short, time_fraction_long,
     return debit
 
 
-def callCalendar(underlying, sigma_short, sigma_long, rate, trials, days_to_expiration_short,
+def callDiagonal(underlying, sigma_short, sigma_long, rate, trials, days_to_expiration_short,
                 days_to_expiration_long, closing_days_array, percentage_array, call_long_strike,
                 call_long_price, call_short_strike, call_short_price, yahoo_stock):
     # Data Verification
@@ -35,7 +35,7 @@ def callCalendar(underlying, sigma_short, sigma_long, rate, trials, days_to_expi
         raise ValueError("closing_days_array and percentage_array sizes must be equal.")
 
     # SIMULATION
-    initial_debit = call_long_price - call_short_price  # Debit paid from opening trade
+    initial_debit = call_short_price - call_long_price  # Debit paid from opening trade
     # initial_credit = -1 * initial_debit
     initial_credit = call_short_price - call_long_price
 

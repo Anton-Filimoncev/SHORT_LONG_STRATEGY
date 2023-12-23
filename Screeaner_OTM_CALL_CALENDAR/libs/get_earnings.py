@@ -11,8 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 import pickle
 import datetime
 
-
-def scraper_earnings_run(tickers_list):
+def scraper_earnings(tickers_list):
     barcode = 'dranatom'
     password = 'MSIGX660'
     # ____________________ Работа с Selenium ____________________________
@@ -25,26 +24,29 @@ def scraper_earnings_run(tickers_list):
     checker = webdriver.Chrome(options=chrome_options)
 
     days_to_earnings = []
+    evr_list = []
 
     for tic in tickers_list:
         try:
             checker.get(f'https://www.optionslam.com/earnings/stocks/{tic}')
-
             sleep(1)
-
             days = checker.find_element(By.XPATH, '/html/body/table[2]/tbody/tr/td[2]/div/table/tbody/tr[2]/td[2]/table/tbody/tr/td[2]')
             days = int(days.text.split(' ')[0])
-            print(days)
             days_to_earnings.append(days)
+
+            evr = checker.find_element(By.XPATH, '/html/body/table[2]/tbody/tr/td[2]/div/table/tbody/tr[2]/td[1]/table/tbody/tr[1]/td[2]')
+            evr = float(evr.text)
+            evr_list.append(evr)
         except:
             days_to_earnings.append('NA')
+            evr_list.append('NA')
 
     checker.close()
-    return days_to_earnings
+    return days_to_earnings, evr_list
 
 
 def run_earnings_get(ticker_list):
-    earnings_list = scraper_earnings(ticker_list)
+    earnings_list, evr_list = scraper_earnings(ticker_list)
 
     FINISH_DF = pd.DataFrame(
         {
@@ -53,4 +55,4 @@ def run_earnings_get(ticker_list):
         }
     )
 
-    return earnings_list
+    return earnings_list, evr_list
