@@ -20,7 +20,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 
-def strategist_pcr_signal(ticker_list):
+def strategist_pcr_signal():
     barcode = 'dranatom'
     password = 'MSIGX660'
     # ____________________ Работа с Selenium ____________________________
@@ -58,21 +58,28 @@ def strategist_pcr_signal(ticker_list):
     html_txt = checker.find_element(By.XPATH,
                                     '''//*[@id="node-47"]/div/div/div/div/pre''').text.split('\n')
 
+    ticker_list = []
     strategist_signals = []
+    strategist_signals_percentile = []
     plot_links_list = []
 
-    for tick in ticker_list:
-        local_flag = 0
-        for piece in html_txt:
-            if tick in piece:
-                if tick == piece.split(' ')[0] or tick + '_W' == piece.split(' ')[0]:
-                    strategist_signals.append(piece[len(tick) + 3:])
-                    # print(piece)
-                    local_flag = 1
-                    break
-        if local_flag == 0:
-            strategist_signals.append('Empty')
-            # print('Empty')
+    for piece in html_txt:
+        try:
+            tick_dirty = piece.split(' ')[0].split('_W')[0]
+            signals_percentile = int(piece.split('/')[1].split('%')[0])
+            signals = piece.split('.')[-1]
+
+            if '@' not in tick_dirty and '$' not in tick_dirty and '1' not in tick_dirty and 'BRKB' not in tick_dirty and 'NYSE' not in tick_dirty:
+                ticker_list.append(tick_dirty)
+                strategist_signals_percentile.append(signals_percentile)
+                strategist_signals.append(signals)
+        except:
+            pass
+
+        # if tick == piece.split(' ')[0] or tick + '_W' == piece.split(' ')[0]:
+        #     strategist_signals.append(piece[len(tick) + 3:])
+        #     strategist_signals_percentile.append(int(piece.split('/')[1].split('%')[0]))
+
 
     # print(strategist_signals)
 
@@ -97,54 +104,24 @@ def strategist_pcr_signal(ticker_list):
 
     # print(plot_links_list)
 
-    return strategist_signals, plot_links_list
+    return_df = pd.DataFrame({
+        'Symbol': ticker_list,
+        'PCR SIGNAL': strategist_signals,
+        'PCR PERCENTILE': strategist_signals_percentile,
+        'PCR Link': plot_links_list,
+    })
 
-def run_strategist():
-    # # ================ раббота с таблицей============================================
-    gc = gd.service_account(filename='Seetus.json')
-    worksheet = gc.open("IBKR").worksheet("ETF")
-    worksheet_spark = gc.open("IBKR").worksheet("sparkline")
-
-    worksheet_df_len = pd.DataFrame(worksheet.get_all_records())[:-1]
-    worksheet_df = pd.DataFrame(worksheet.get_all_records())[:-1]
-    company_list = worksheet_df_len['ETF COMPLEX POSITION'].values.tolist()
-    strategist_pcr_signals, plot_links_list = strategist_pcr_signal(company_list)
-    hist_vol_df = hist_vol_start()
-
-    for i in range(len(worksheet_df_len)):
-
-        # заполняем столбцы с формулами
-        for k in range(len(worksheet_df_len)):
-            worksheet_df['CURRENT PRICE'].iloc[k] = f'=GOOGLEFINANCE(A{k + 2},"price")'
-            worksheet_df['WEIGHT PCR sparkline'].iloc[k] = f'=sparkline(sparkline!B{k + 1}:W{k + 1})'
-            # worksheet_df['% BETA DELTA'].iloc[k] = f'=C{k + 2}/$C$27'
-
-        # print(worksheet_df)
-
-        tick = worksheet_df['ETF COMPLEX POSITION'].iloc[i]
-        # print('TICKER = ', tick)
-        # print(hist_vol_df[hist_vol_df['Symbol'] == tick]['Percentile'])
-        iv_os = hist_vol_df[hist_vol_df['Symbol'] == tick]['Percentile']
-
-        if iv_os.empty == True:
-            iv_os = 'Empty'
-        else:
-            iv_os = iv_os.values[0] / 100
-
-        # ----------------------------
-        worksheet_df['O_S WEIGHT PCR SIGNAL'].iloc[i] = strategist_pcr_signals[i]
-        worksheet_df['O_S Plot Link'].iloc[i] = plot_links_list[i]
-        worksheet_df['IV O_S'].iloc[i] = iv_os
+    return return_df
 
 
-def get_pcr_run(tick_list):
+def get_pcr_run():
     print('---------------------------')
     print('------------- Getting PCR ... --------------')
     print('---------------------------')
 
-    strategist_pcr_signals, plot_links_list = strategist_pcr_signal(tick_list)
+    return_df = strategist_pcr_signal()
 
-    return(strategist_pcr_signals, plot_links_list)
+    return return_df
 
 
  

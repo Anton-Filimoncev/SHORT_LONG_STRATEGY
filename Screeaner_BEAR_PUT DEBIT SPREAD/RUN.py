@@ -22,41 +22,32 @@ from pathlib import Path
 from libs.get_earnings import run_earnings_get
 
 if __name__ == "__main__":
-    poll_num = 1  # Количество потоков
-    # Загружаем датафрейм с компаниями
+    poll_num = 4  # Количество потоков
+    RISK_RATE = 4
 
-    RISK_RATE = 4.8
-
-    # active_stock_df = pd.read_excel("active_stock_df.xlsx")[:2]
-
-    active_stock_df = pd.read_excel("active_stock/HIGH_CAP_COMPANY.xlsx")
+    # Получаем PCR сигналы со стратегиста
+    active_stock_df = get_pcr_run()
 
     print(active_stock_df)
-
-    active_stock_df = active_stock_df[active_stock_df["Last"] > 10].reset_index(
-        drop=True
-    )
+    # # переопределяем список тикеров после отсева по PCR PERCENTILE
+    active_stock_df = active_stock_df[active_stock_df['PCR PERCENTILE'] <= 20].reset_index(drop=True)
+    tick_list = active_stock_df["Symbol"].values.tolist()
+    print(active_stock_df)
 
     for num in range(len(active_stock_df["Symbol"])):
         symb = active_stock_df["Symbol"].iloc[num]
         if "." in symb:
             active_stock_df["Symbol"].iloc[num] = symb.replace(".", "-")
-
+    #
     tick_list = active_stock_df["Symbol"].values.tolist()
     # Загружаем ценовые ряды из яхуу
-    stock_yahoo = yf.download(tick_list, group_by="ticker")
-
-    # Получаем PCR сигналы со стратегиста
-    strategist_pcr_signals, plot_links_list, strategist_signals_percentile = get_pcr_run(tick_list)
-    active_stock_df['PCR SIGNAL'] = strategist_pcr_signals
-    active_stock_df['PCR PERCENTILE'] = strategist_signals_percentile
-    active_stock_df['PCR Link'] = plot_links_list
-    print(active_stock_df)
-    # # переопределяем список тикеров после отсева по PCR PERCENTILE
-    active_stock_df = active_stock_df[active_stock_df['PCR PERCENTILE'] < 20].reset_index(drop=True)
-    tick_list = active_stock_df["Symbol"].values.tolist()
-    print(active_stock_df)
-
+    stock_yahoo = yf.download(tick_list, group_by="ticker").dropna(axis=1, how='all')
+    # фильтруем датасет, оставляем тикеры которые есть на yf
+    print(stock_yahoo)
+    # tick_list = stock_yahoo.columns.levels[0].tolist()
+    print('tick_list')
+    print(tick_list)
+    # print(stock_yahoo)
 
     # Получаем волатильность с ИБ
     (
@@ -68,7 +59,7 @@ if __name__ == "__main__":
         HV_50,
         HV_100,
         HV_Regime,
-    ) = get_ib_run(tick_list, poll_num)
+    ) = get_ib_run(tick_list)
     active_stock_df["IV % year"] = IV_percentile
     active_stock_df["IV DIA year"] = IV_Regime
     active_stock_df["IV median 6 m"] = IV_Median

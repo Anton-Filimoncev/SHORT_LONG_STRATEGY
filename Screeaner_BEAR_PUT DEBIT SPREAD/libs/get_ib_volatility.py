@@ -349,11 +349,11 @@ def nearest_equal_abs(lst, target):
     return min(lst, key=lambda x: abs(abs(x) - target))
 
 
-def get_ib_run(tick_list, poll_num):
+def get_ib_run(tick_list):
     print('---------------------------')
     print('------------- Getting IB Volatilities ... --------------')
     print('---------------------------')
-
+    poll_num = 1
     with Pool(poll_num) as p:
         pool_out = p.map(market_stage_ticker,
                          [(id_num, tick) for id_num, tick in

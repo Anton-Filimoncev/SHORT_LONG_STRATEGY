@@ -361,9 +361,7 @@ def get_data_and_calc_itm_calendar(pool_input):
         print('---------- needed_long -----------------')
         print(needed_long)
 
-        expected_return = expected_return_calc(vol_put_short, vol_put_long, needed_strike_sell, hv, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short, RISK_RATE)
-
-
+        expected_return = expected_return_calc(vol_put_short, vol_put_long, current_price, hv, days_to_exp_short, days_to_exp_long, strike_put_long, strike_put_short, prime_put_long, prime_put_short, RISK_RATE)
 
         c = mibian.BS([strike_put_long, strike_put_long, RISK_RATE, days_to_exp_long], volatility=vol_put_long * 100)
         price_up_long = c.putPrice
