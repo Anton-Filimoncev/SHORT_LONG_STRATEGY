@@ -191,11 +191,9 @@ if __name__ == "__main__":
 
     tick = "IYR"  # LLY
 
-    start_df = pd.read_excel("ETF_result_strangle.xlsx")
-    start_df = start_df[start_df["Symbol"] == tick].reset_index(drop=True)
     yahoo_stock = yf.download(tick)
-    current_price = yahoo_stock['Close'].iloc[-1]
-    hv = start_df["HV 100"].values[0]
+    current_price = yahoo_stock["Close"].iloc[-1]
+
     # ----------- get Exp date list  -----------------
 
     url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
@@ -284,6 +282,7 @@ if __name__ == "__main__":
     close_exp_date = days_to_exp
 
     monte_carlo_proba_50 = []
+    monte_carlo_cvar = []
     atm_volatility_put = needed_put["iv"] * 100
     atm_volatility_call = needed_call["iv"] * 100
 
@@ -300,7 +299,7 @@ if __name__ == "__main__":
     closing_days_array = [close_exp_date]
     percentage_array = [50]
     trials = 2000
-    proba_50 = shortStrangle(
+    proba_50, cvar = shortStrangle(
         current_price,
         sigma,
         rate,
@@ -316,6 +315,7 @@ if __name__ == "__main__":
     )
 
     monte_carlo_proba_50.append(proba_50)
+    monte_carlo_cvar.append(cvar)
 
     strangle_pop_50 = return_50 * proba_50
 
@@ -331,6 +331,7 @@ if __name__ == "__main__":
             "Call Strike": [needed_call["strike"]],
             "Put Strike": [needed_put["strike"]],
             "EXP_date": [needed_put["EXP_date"].date()],
+            "CVAR": [cvar],
         }
     )
     print(print_df)

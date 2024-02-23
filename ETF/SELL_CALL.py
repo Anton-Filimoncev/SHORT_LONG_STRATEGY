@@ -157,6 +157,7 @@ if __name__ == "__main__":
     )
     chains["MP_RETURN"] = chains["bid"] / chains["Margin"]
     monte_carlo_proba_50 = []
+    monte_carlo_cvar = []
 
     atm_strike = nearest_equal_abs(chains["strike"], current_price)
     atm_volatility = chains[chains["strike"] == atm_strike]["iv"].values[0] * 100
@@ -171,7 +172,7 @@ if __name__ == "__main__":
         closing_days_array = [close_exp_date]
         percentage_array = [50]
         trials = 2000
-        proba_50 = shortCall(
+        proba_50, cvar = shortCall(
             current_price,
             sigma,
             rate,
@@ -184,14 +185,16 @@ if __name__ == "__main__":
             yahoo_stock,
         )
         monte_carlo_proba_50.append(proba_50)
+        monte_carlo_cvar.append(cvar)
 
     chains['proba_50'] = monte_carlo_proba_50
+    chains['CVAR'] = monte_carlo_cvar
     chains['MPRP_CALL'] = chains["MP_RETURN"] * chains['proba_50']
 
     print("===============")
     print(
         chains[
-            ["strike", "bid", "Margin", "MP_RETURN", 'proba_50', "MPRP_CALL"]
+            ["strike", "bid", "Margin", "MP_RETURN", 'proba_50', "MPRP_CALL", 'CVAR']
         ]
     )
     print("MAX mprp_call: ", chains['MPRP_CALL'].max())

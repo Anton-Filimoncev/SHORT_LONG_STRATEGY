@@ -306,7 +306,7 @@ def get_data_and_calc_strangl(pool_input):
         closing_days_array = [close_exp_date]
         percentage_array = [50]
         trials = 2000
-        proba_50 = shortStrangle(
+        proba_50, cvar = shortStrangle(
             current_price,
             sigma,
             rate,
@@ -330,8 +330,9 @@ def get_data_and_calc_strangl(pool_input):
 
     except Exception as err:
         strangle_pop_50 = "EMPTY"
+        cvar = "EMPTY"
 
-    return strangle_pop_50
+    return strangle_pop_50, cvar
 
 
 def strangle_run(active_stock_df, stock_yahoo, tick_list, poll_num):
@@ -348,4 +349,12 @@ def strangle_run(active_stock_df, stock_yahoo, tick_list, poll_num):
             ],
         )
 
-    return strangle_out
+    strangle, cvar = zip(*strangle_out)
+
+    strangle = np.array([*strangle])
+    strangle = np.reshape(strangle, len(strangle))
+    cvar = np.array([*cvar])
+    cvar = np.reshape(cvar, len(cvar))
+
+
+    return strangle, cvar

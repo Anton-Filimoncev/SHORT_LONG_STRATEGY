@@ -88,26 +88,29 @@ if __name__ == "__main__":
     main_data['HV 100'] = HV_100
     main_data['HV 200'] = HV_200
     main_data['HV DIA'] = HV_Regime
-    #
-    # print(main_data)
+
+    print(main_data)
 
     # # Для тикеров у которых 2-3-4 диапазон по волатильности - собираем данные по продаже путов и коллов
-    sell_put_result_rpop_50, sell_put_result_ROCday = sell_put_run(
+    sell_put_result_rpop_50, sell_put_result_ROCday, put_cvar = sell_put_run(
         main_data, stock_yahoo, full_tikers_list, poll_num
     )
     time.sleep(3)
 
-    sell_call_result = sell_call_run(main_data, stock_yahoo, full_tikers_list, poll_num)
+    sell_call_result, call_cvar = sell_call_run(main_data, stock_yahoo, full_tikers_list, poll_num)
 
     main_data["SELL_PUT_PoP"] = sell_put_result_rpop_50
     main_data["SELL_PUT_ROCday"] = sell_put_result_ROCday
     main_data["SELL_CALL"] = sell_call_result
+    main_data["PUT_CVAR"] = put_cvar
+    main_data["CALL_CVAR"] = call_cvar
     print(main_data)
     #
     # # # Для тикеров с 2-3-4 диа собираем стренглы
-    strangle_data = strangle_run(
+    strangle_data, cvar = strangle_run(
         main_data, stock_yahoo, full_tikers_list, poll_num
     )  # pooled
     main_data["STRANGLE"] = strangle_data
+    main_data["STRANGLE_CVAR"] = cvar
     print(main_data)
     main_data.to_excel("ETF_result.xlsx", index=False)

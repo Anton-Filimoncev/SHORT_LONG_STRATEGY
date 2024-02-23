@@ -218,7 +218,7 @@ def get_data_and_calc_pop(pool_input):
             closing_days_array = [close_exp_date]
             percentage_array = [50]
             trials = 2000
-            proba_50 = shortPut(
+            proba_50, cvar = shortPut(
                 current_price,
                 sigma,
                 rate,
@@ -248,8 +248,9 @@ def get_data_and_calc_pop(pool_input):
     except Exception as err:
         rpop_50 = "EMPTY"
         ROCday = "EMPTY"
+        cvar = "EMPTY"
 
-    return rpop_50, ROCday
+    return rpop_50, ROCday, cvar
 
 
 def sell_put_run(active_stock_df, stock_yahoo, tick_list, poll_num):
@@ -265,7 +266,7 @@ def sell_put_run(active_stock_df, stock_yahoo, tick_list, poll_num):
                 for i in range(len(active_stock_df))
             ],
         )
-    rpop_50, ROCday = zip(*sell_put_result)
+    rpop_50, ROCday, cvar = zip(*sell_put_result)
     print("rpop_50")
     print(rpop_50)
     print("ROCday")
@@ -275,10 +276,15 @@ def sell_put_run(active_stock_df, stock_yahoo, tick_list, poll_num):
     rpop_50 = np.reshape(rpop_50, len(rpop_50))
     ROCday = np.array([*ROCday])
     ROCday = np.reshape(ROCday, len(ROCday))
+    cvar = np.array([*cvar])
+    cvar = np.reshape(cvar, len(cvar))
+
 
     print("rpop_50")
     print(rpop_50)
     print("ROCday")
     print(ROCday)
+    print("cvar")
+    print(cvar)
 
-    return rpop_50, ROCday
+    return rpop_50, ROCday, cvar

@@ -181,7 +181,7 @@ def get_data_and_calc_mprp_call(pool_input):
             closing_days_array = [close_exp_date]
             percentage_array = [50]
             trials = 2000
-            proba_50 = shortCall(current_price, sigma, rate, trials, days_to_expiration,
+            proba_50, cvar = shortCall(current_price, sigma, rate, trials, days_to_expiration,
                               closing_days_array, percentage_array, short_strike, short_price, yahoo_stock)
             monte_carlo_proba_50.append(proba_50)
 
@@ -193,8 +193,9 @@ def get_data_and_calc_mprp_call(pool_input):
     except Exception as err:
         print(err)
         mprp_call = 'EMPTY'
+        cvar = 'EMPTY'
 
-    return mprp_call
+    return mprp_call, cvar
 
 
 def sell_call_run(active_stock_df, stock_yahoo, tick_list, poll_num):
@@ -204,6 +205,12 @@ def sell_call_run(active_stock_df, stock_yahoo, tick_list, poll_num):
 
     with Pool(poll_num) as p:
         sell_call_result = p.map(get_data_and_calc_mprp_call, [(active_stock_df.iloc[i], stock_yahoo) for i in range(len(active_stock_df))])
+        sell_call, cvar = zip(*sell_call_result)
 
-    return sell_call_result
+        sell_call = np.array([*sell_call])
+        sell_call = np.reshape(sell_call, len(sell_call))
+        cvar = np.array([*cvar])
+        cvar = np.reshape(cvar, len(cvar))
+
+    return sell_call, cvar
 

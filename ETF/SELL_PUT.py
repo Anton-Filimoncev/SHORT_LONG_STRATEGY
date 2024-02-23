@@ -198,6 +198,7 @@ if __name__ == "__main__":
     # Для каждого страйка считаем вероятность получения 50% прибыли по монте-карло (POP50)
 
     monte_carlo_proba_50 = []
+    monte_carlo_cvar = []
     atm_strike = nearest_equal_abs(chains["strike"], current_price)
     atm_volatility = chains[chains["strike"] == atm_strike]["iv"].values[0] * 100
 
@@ -211,7 +212,7 @@ if __name__ == "__main__":
         closing_days_array = [close_exp_date]
         percentage_array = [50]
         trials = 2000
-        proba_50 = shortPut(
+        proba_50, cvar = shortPut(
             current_price,
             sigma,
             rate,
@@ -224,14 +225,17 @@ if __name__ == "__main__":
             yahoo_stock,
         )
         monte_carlo_proba_50.append(proba_50)
+        monte_carlo_cvar.append(cvar)
 
 
-    chains["Probability of making 50%"] = monte_carlo_proba_50
-    chains["50 RPOP"] = chains["Probability of making 50%"] * chains["50% RETURN"]
+
+    chains["Proba 50%"] = monte_carlo_proba_50
+    chains["CVAR"] = monte_carlo_cvar
+    chains["50 RPOP"] = chains["Proba 50%"] * chains["50% RETURN"]
 
     print(
         chains[
-            ["strike", "Margin", "50% RETURN", "Probability of making 50%", "50 RPOP"]
+            ["strike", "Margin", "50% RETURN", "Proba 50%", "50 RPOP", "CVAR"]
         ]
     )
     print("max_val: ", chains["50 RPOP"].max())
