@@ -24,7 +24,8 @@ def get_company_signals_run(stock_yahoo, tick_list, poll_num):
 
     with Pool(poll_num) as p:
          pool_out = p.map(get_current_regime, [(stock_yahoo[tick], benchmark, regime_start_date, tick) for tick in tick_list])
-
+    print('pool_out')
+    print(pool_out)
     regime_list, relative_regime_list = zip(*pool_out)
 
     return regime_list, relative_regime_list

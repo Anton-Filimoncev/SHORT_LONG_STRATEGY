@@ -7,7 +7,7 @@ from libs.get_company_signals import get_company_signals_run
 from libs.get_tech import get_tech_run
 from libs.get_pcr import get_pcr_run
 from libs.get_ib_volatility import get_ib_run
-
+from libs.get_up_down_volume import up_down_volume_run
 # from get_revard_risk import revard_risk_run
 from libs.get_sell_put import sell_put_run
 from libs.get_risk_reversal import risk_reversal_run
@@ -18,8 +18,6 @@ from libs.get_beta import run_beta
 from libs.get_trend_sector import get_trend_df
 from libs.get_bollinger import rur_bollinger
 
-from get_div_data_guru import run_guru
-
 # from get_mprp_call import mprp_call_run
 import time
 import os
@@ -27,7 +25,7 @@ from pathlib import Path
 
 
 if __name__ == "__main__":
-    poll_num = 8  # Количество потоков
+    poll_num = 4  # Количество потоков
     # Загружаем датафрейм с компаниями
     main_data = pd.read_excel("ETF_start.xlsx")
     print(main_data)
@@ -40,11 +38,6 @@ if __name__ == "__main__":
     ].values.tolist()
     full_tikers_list = main_data["Symbol"].values.tolist()
 
-    # Качаем или не качаем новые файлы и считаем Div Score
-    download_fresh_data = False
-    gf_div_yield_list = run_guru(full_tikers_list, download_fresh_data)
-    main_data["Div Score"] = gf_div_yield_list
-
     sector_score = get_trend_df(tikers_for_sector_trend, sector_for_sector_trend)
     main_data.loc[main_data['Type'] == 'Секторальные', 'Sector_Trend'] = sector_score
 
@@ -52,7 +45,9 @@ if __name__ == "__main__":
     stock_yahoo.index = pd.to_datetime(stock_yahoo.index)
     print(stock_yahoo)
     tick_list_reg = main_data[main_data['Type'] != 'Секторальные']['Symbol'].values.tolist()
-    reg_trend_signals, rel_reg_trend_signals = get_company_signals_run(stock_yahoo, tick_list_reg, poll_num)
+
+    stock_yahoo_regime = yf.download(tick_list_reg, group_by="ticker", interval="1d", auto_adjust=True)
+    reg_trend_signals, rel_reg_trend_signals = get_company_signals_run(stock_yahoo_regime, tick_list_reg, poll_num)
     print('reg_trend_signals')
     print(reg_trend_signals)
     print('rel_reg_trend_signals')
@@ -72,11 +67,17 @@ if __name__ == "__main__":
     # Получаем Бэту
     main_data["Beta"] = run_beta(full_tikers_list, stock_yahoo)
 
+    # Получаем UP DOWN trend
+    val_list, regression_list = up_down_volume_run(full_tikers_list, stock_yahoo)
+    main_data["UP DOWN Trend"] = val_list
+    main_data["UP DOWN Line"] = regression_list
+
+
     print(main_data)
 
     # Получаем сигнал по Боллинжеру
     main_data["Bollinger"] = rur_bollinger(full_tikers_list, stock_yahoo)
-
+    #
     IV_percentile, IV_Regime, IV_Median, IV, HV_20, HV_50, HV_100, HV_200, HV_Regime = get_ib_run(full_tikers_list, poll_num)
     main_data['IV % year'] = IV_percentile
     main_data['IV DIA year'] = IV_Regime

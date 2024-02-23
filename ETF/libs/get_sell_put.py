@@ -152,98 +152,98 @@ def get_data_and_calc_pop(pool_input):
     KEY = "ckZsUXdiMTZEZVQ3a25TVEFtMm9SeURsQ1RQdk5yWERHS0RXaWNpWVJ2cz0"
     try:
         start_df, stock_yahoo_long = pool_input
-        if int(start_df["IV DIA year"]) >= 2:
-            tick = start_df["Symbol"]
-            current_price = start_df["Current Price"]
-            hv = start_df["HV 100"]
-            # print(f'---------    {tick}')
-            # ----------- get Exp date list  -----------------
+        # if int(start_df["IV DIA year"]) >= 2:
+        tick = start_df["Symbol"]
+        current_price = start_df["Current Price"]
+        # hv = start_df["HV 100"]
+        # print(f'---------    {tick}')
+        # ----------- get Exp date list  -----------------
 
-            url_exp = (
-                f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
+        url_exp = (
+            f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
+        )
+        response_exp = requests.request("GET", url_exp).json()
+        exp_date_df = pd.DataFrame(response_exp)
+        exp_date_df["expirations"] = pd.to_datetime(exp_date_df["expirations"])
+        exp_date_df["Days_to_exp"] = (
+            exp_date_df["expirations"] - datetime.datetime.now()
+        ).dt.days
+        days_to_exp = nearest_equal_abs(exp_date_df["Days_to_exp"], 45)
+        needed_exp_date = (
+            exp_date_df[exp_date_df["Days_to_exp"] == days_to_exp]["expirations"]
+            .reset_index(drop=True)
+            .iloc[0]
+            .date()
+        )
+
+        # ----------- Chains -----------------
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&side=put&token={KEY}"
+        response_chains = requests.request("GET", url).json()
+        chains = pd.DataFrame(response_chains)
+        chains = chains[chains["strike"] < current_price * 1]
+        chains = chains[chains["strike"] > current_price * 0.7].reset_index(
+            drop=True
+        )
+        # Для каждого страйка считаем маржинальные требования по формуле =MAX((STRIKE*0.1),(PRICE*0.2-otm value))*100.
+        # OTM VALUE считается как =IF(STRIKE>PRICE, 0 ,PRICE-STRIKE)
+        # print(chains.columns)
+        close_exp_date = days_to_exp
+        # exp_move = hv * current_price * math.sqrt(close_exp_date/365)
+        otm_value = np.where(
+            chains["strike"] > current_price, 0, current_price - chains["strike"]
+        )
+        # print('otm_value', otm_value)
+        chains["Margin"] = np.where(
+            (chains["strike"] * 0.1) > (current_price * 0.2 - otm_value),
+            (chains["strike"] * 0.1),
+            (current_price * 0.2 - otm_value),
+        )
+        chains["50% RETURN"] = (chains["bid"] / 2) / chains["Margin"]
+
+        # Для каждого страйка считаем вероятность получения 50% прибыли по монте-карло (POP50)
+
+        monte_carlo_proba_50 = []
+        atm_strike = nearest_equal_abs(chains["strike"], current_price)
+        atm_volatility = (
+            chains[chains["strike"] == atm_strike]["iv"].values[0] * 100
+        )
+
+        for index, row in chains.iterrows():
+            yahoo_stock = stock_yahoo_long[tick]
+            short_strike = row["strike"]
+            short_price = row["bid"]
+            rate = 4.9
+            sigma = atm_volatility
+            days_to_expiration = close_exp_date
+            closing_days_array = [close_exp_date]
+            percentage_array = [50]
+            trials = 2000
+            proba_50 = shortPut(
+                current_price,
+                sigma,
+                rate,
+                trials,
+                days_to_expiration,
+                closing_days_array,
+                percentage_array,
+                short_strike,
+                short_price,
+                yahoo_stock,
             )
-            response_exp = requests.request("GET", url_exp).json()
-            exp_date_df = pd.DataFrame(response_exp)
-            exp_date_df["expirations"] = pd.to_datetime(exp_date_df["expirations"])
-            exp_date_df["Days_to_exp"] = (
-                exp_date_df["expirations"] - datetime.datetime.now()
-            ).dt.days
-            days_to_exp = nearest_equal_abs(exp_date_df["Days_to_exp"], 45)
-            needed_exp_date = (
-                exp_date_df[exp_date_df["Days_to_exp"] == days_to_exp]["expirations"]
-                .reset_index(drop=True)
-                .iloc[0]
-                .date()
-            )
+            monte_carlo_proba_50.append(proba_50)
 
-            # ----------- Chains -----------------
-            url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&side=put&token={KEY}"
-            response_chains = requests.request("GET", url).json()
-            chains = pd.DataFrame(response_chains)
-            chains = chains[chains["strike"] < current_price * 1]
-            chains = chains[chains["strike"] > current_price * 0.7].reset_index(
-                drop=True
-            )
-            # Для каждого страйка считаем маржинальные требования по формуле =MAX((STRIKE*0.1),(PRICE*0.2-otm value))*100.
-            # OTM VALUE считается как =IF(STRIKE>PRICE, 0 ,PRICE-STRIKE)
-            # print(chains.columns)
-            close_exp_date = days_to_exp
-            # exp_move = hv * current_price * math.sqrt(close_exp_date/365)
-            otm_value = np.where(
-                chains["strike"] > current_price, 0, current_price - chains["strike"]
-            )
-            # print('otm_value', otm_value)
-            chains["Margin"] = np.where(
-                (chains["strike"] * 0.1) > (current_price * 0.2 - otm_value),
-                (chains["strike"] * 0.1),
-                (current_price * 0.2 - otm_value),
-            )
-            chains["50% RETURN"] = (chains["bid"] / 2) / chains["Margin"]
+        chains["rpop_50"] = chains["50% RETURN"] * np.array(monte_carlo_proba_50)
+        rpop_50 = chains["rpop_50"].max()
+        bid_calc = chains[chains["rpop_50"] == rpop_50]["bid"].values.tolist()[0]
+        margin_calc = chains[chains["rpop_50"] == rpop_50]["Margin"].values.tolist()[0]
+        print('bid_calc')
+        print(bid_calc)
+        print()
 
-            # Для каждого страйка считаем вероятность получения 50% прибыли по монте-карло (POP50)
-
-            monte_carlo_proba_50 = []
-            atm_strike = nearest_equal_abs(chains["strike"], current_price)
-            atm_volatility = (
-                chains[chains["strike"] == atm_strike]["iv"].values[0] * 100
-            )
-
-            for index, row in chains.iterrows():
-                yahoo_stock = stock_yahoo_long[tick]
-                short_strike = row["strike"]
-                short_price = row["bid"]
-                rate = 4.9
-                sigma = atm_volatility
-                days_to_expiration = close_exp_date
-                closing_days_array = [close_exp_date]
-                percentage_array = [50]
-                trials = 2000
-                proba_50 = shortPut(
-                    current_price,
-                    sigma,
-                    rate,
-                    trials,
-                    days_to_expiration,
-                    closing_days_array,
-                    percentage_array,
-                    short_strike,
-                    short_price,
-                    yahoo_stock,
-                )
-                monte_carlo_proba_50.append(proba_50)
-
-            chains["rpop_50"] = chains["50% RETURN"] * np.array(monte_carlo_proba_50)
-            rpop_50 = chains["rpop_50"].max()
-            bid_calc = chains[chains["rpop_50"] == rpop_50]["bid"].values.tolist()[0]
-            margin_calc = chains[chains["rpop_50"] == rpop_50]["Margin"].values.tolist()[0]
-            print('bid_calc')
-            print(bid_calc)
-            print()
-
-            ROCday = (((bid_calc / 2) / margin_calc) / close_exp_date)*100
-        else:
-            rpop_50 = np.nan
-            ROCday = np.nan
+        ROCday = (((bid_calc / 2) / margin_calc) / close_exp_date)*100
+        # else:
+        #     rpop_50 = np.nan
+        #     ROCday = np.nan
 
     except Exception as err:
         rpop_50 = "EMPTY"

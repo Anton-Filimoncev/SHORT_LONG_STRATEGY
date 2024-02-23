@@ -106,8 +106,8 @@ if __name__ == "__main__":
     active_stock_df["Regime"] = regime_list
     active_stock_df["Relative Regime"] = relative_regime_list
     #
-    # Получаем UP DOWN trend
 
+    # Получаем UP DOWN trend
     val_list, regression_list = up_down_volume_run(tick_list, stock_yahoo)
     active_stock_df["UP DOWN Trend"] = val_list
     active_stock_df["UP DOWN Line"] = regression_list

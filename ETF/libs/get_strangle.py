@@ -191,142 +191,142 @@ def get_data_and_calc_strangl(pool_input):
     KEY = "ckZsUXdiMTZEZVQ3a25TVEFtMm9SeURsQ1RQdk5yWERHS0RXaWNpWVJ2cz0"
     try:
         start_df, stock_yahoo = pool_input
-        if int(start_df["IV DIA year"]) >= 2:
-            tick = start_df["Symbol"]
-            current_price = start_df["Current Price"]
-            hv = start_df["HV 100"]
-            print(tick)
-            # ----------- get Exp date list  -----------------
-            url_exp = (
-                f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
-            )
-            response_exp = requests.request("GET", url_exp).json()
-            exp_date_df = pd.DataFrame(response_exp)
-            exp_date_df["expirations"] = pd.to_datetime(exp_date_df["expirations"])
-            exp_date_df["Days_to_exp"] = (
-                exp_date_df["expirations"] - datetime.datetime.now()
-            ).dt.days
-            days_to_exp = nearest_equal_abs(exp_date_df["Days_to_exp"], 300)
-            needed_exp_date = (
-                exp_date_df[exp_date_df["Days_to_exp"] == days_to_exp]["expirations"]
-                .reset_index(drop=True)
-                .iloc[0]
-                .date()
-            )
+        # if int(start_df["IV DIA year"]) >= 2:
+        tick = start_df["Symbol"]
+        current_price = start_df["Current Price"]
+        # hv = start_df["HV 100"]
+        print(tick)
+        # ----------- get Exp date list  -----------------
+        url_exp = (
+            f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
+        )
+        response_exp = requests.request("GET", url_exp).json()
+        exp_date_df = pd.DataFrame(response_exp)
+        exp_date_df["expirations"] = pd.to_datetime(exp_date_df["expirations"])
+        exp_date_df["Days_to_exp"] = (
+            exp_date_df["expirations"] - datetime.datetime.now()
+        ).dt.days
+        days_to_exp = nearest_equal_abs(exp_date_df["Days_to_exp"], 45)
+        needed_exp_date = (
+            exp_date_df[exp_date_df["Days_to_exp"] == days_to_exp]["expirations"]
+            .reset_index(drop=True)
+            .iloc[0]
+            .date()
+        )
 
-            # ----------- Chains -----------------
-            url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&token={KEY}"
-            response_chains = requests.request("GET", url).json()
-            chains = pd.DataFrame(response_chains)
-            chains["updated"] = pd.to_datetime(chains["updated"], unit="s")
-            chains["EXP_date"] = pd.to_datetime(
-                chains["expiration"], unit="s", errors="coerce"
-            )
-            chains["days_to_exp"] = (chains["EXP_date"] - chains["updated"]).dt.days
-            #
+        # ----------- Chains -----------------
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&token={KEY}"
+        response_chains = requests.request("GET", url).json()
+        chains = pd.DataFrame(response_chains)
+        chains["updated"] = pd.to_datetime(chains["updated"], unit="s")
+        chains["EXP_date"] = pd.to_datetime(
+            chains["expiration"], unit="s", errors="coerce"
+        )
+        chains["days_to_exp"] = (chains["EXP_date"] - chains["updated"]).dt.days
+        #
 
-            put_df = chains[chains["side"] == "put"].reset_index(drop=True)
-            # ограничиваем пут бидом не менее 1 бакса
-            put_df = put_df[put_df["bid"] >= 1].reset_index(drop=True)
-            atm_put_strike = nearest_equal_abs(put_df["strike"], current_price)
-            put_df = put_df[put_df["strike"] <= atm_put_strike].reset_index(drop=True)
+        put_df = chains[chains["side"] == "put"].reset_index(drop=True)
+        # ограничиваем пут бидом не менее 1 бакса
+        put_df = put_df[put_df["bid"] >= 1].reset_index(drop=True)
+        atm_put_strike = nearest_equal_abs(put_df["strike"], current_price)
+        put_df = put_df[put_df["strike"] <= atm_put_strike].reset_index(drop=True)
 
-            put_df["ATM_strike_volatility"] = put_df[
-                put_df["strike"] == atm_put_strike
-            ]["iv"].values[0]
-            call_df = chains[chains["side"] == "call"].reset_index(drop=True)
+        put_df["ATM_strike_volatility"] = put_df[
+            put_df["strike"] == atm_put_strike
+        ]["iv"].values[0]
+        call_df = chains[chains["side"] == "call"].reset_index(drop=True)
 
-            put_df = get_BS_prices(current_price, "P", put_df)
-            put_df["Difference"] = put_df["bid"] - put_df["BS_PRICE"]
-            # print(put_df[['strike', 'bid', 'BS_PRICE', 'Difference']])
-            needed_put = (
-                put_df[put_df["Difference"] == put_df["Difference"].max()]
-                .reset_index(drop=True)
-                .iloc[0]
-            )
+        put_df = get_BS_prices(current_price, "P", put_df)
+        put_df["Difference"] = put_df["bid"] - put_df["BS_PRICE"]
+        # print(put_df[['strike', 'bid', 'BS_PRICE', 'Difference']])
+        needed_put = (
+            put_df[put_df["Difference"] == put_df["Difference"].max()]
+            .reset_index(drop=True)
+            .iloc[0]
+        )
 
-            put_delta = needed_put["delta"]
-            needed_call_delta = nearest_equal_abs(call_df["delta"], abs(put_delta))
-            needed_call = (
-                call_df[call_df["delta"] == needed_call_delta]
-                .reset_index(drop=True)
-                .iloc[0]
-            )
+        put_delta = needed_put["delta"]
+        needed_call_delta = nearest_equal_abs(call_df["delta"], abs(put_delta))
+        needed_call = (
+            call_df[call_df["delta"] == needed_call_delta]
+            .reset_index(drop=True)
+            .iloc[0]
+        )
 
-            total_prime = needed_call.bid + needed_put.bid
-            # put
-            otm_value_put = np.where(
-                needed_put["strike"] > current_price,
-                0,
-                current_price - needed_put["strike"],
-            )
-            needed_put["Margin PUT"] = np.where(
-                (needed_put["strike"] * 0.1) > (current_price * 0.2 - otm_value_put),
-                (needed_put["strike"] * 0.1),
-                (current_price * 0.2 - otm_value_put),
-            )
+        total_prime = needed_call.bid + needed_put.bid
+        # put
+        otm_value_put = np.where(
+            needed_put["strike"] > current_price,
+            0,
+            current_price - needed_put["strike"],
+        )
+        needed_put["Margin PUT"] = np.where(
+            (needed_put["strike"] * 0.1) > (current_price * 0.2 - otm_value_put),
+            (needed_put["strike"] * 0.1),
+            (current_price * 0.2 - otm_value_put),
+        )
 
-            # call
-            otm_value_call = np.where(
-                needed_call["strike"] < current_price,
-                0,
-                needed_call["strike"] - current_price,
-            )
-            needed_call["Margin CALL"] = np.where(
-                (needed_call["strike"] * 0.1) > (current_price * 0.2 - otm_value_call),
-                (needed_call["strike"] * 0.1),
-                (current_price * 0.2 - otm_value_call),
-            )
+        # call
+        otm_value_call = np.where(
+            needed_call["strike"] < current_price,
+            0,
+            needed_call["strike"] - current_price,
+        )
+        needed_call["Margin CALL"] = np.where(
+            (needed_call["strike"] * 0.1) > (current_price * 0.2 - otm_value_call),
+            (needed_call["strike"] * 0.1),
+            (current_price * 0.2 - otm_value_call),
+        )
 
-            total_margin = np.where(
-                (needed_call["Margin CALL"]) > (needed_put["Margin PUT"]),
-                (needed_call["Margin CALL"] + needed_put.bid),
-                (needed_put["Margin PUT"] + needed_call.bid),
-            )
-            return_50 = (total_prime / 2) / total_margin
+        total_margin = np.where(
+            (needed_call["Margin CALL"]) > (needed_put["Margin PUT"]),
+            (needed_call["Margin CALL"] + needed_put.bid),
+            (needed_put["Margin PUT"] + needed_call.bid),
+        )
+        return_50 = (total_prime / 2) / total_margin
 
-            # ----------------------------    Считаем 50%POP для стренгла
+        # ----------------------------    Считаем 50%POP для стренгла
 
-            close_exp_date = days_to_exp
+        close_exp_date = days_to_exp
 
-            monte_carlo_proba_50 = []
-            atm_volatility_put = needed_put["iv"] * 100
-            atm_volatility_call = needed_call["iv"] * 100
+        monte_carlo_proba_50 = []
+        atm_volatility_put = needed_put["iv"] * 100
+        atm_volatility_call = needed_call["iv"] * 100
 
-            # for index, row in chains.iterrows():
-            yahoo_stock = stock_yahoo[tick]
-            call_short_strike = needed_call["strike"]
-            put_short_strike = needed_put["strike"]
+        # for index, row in chains.iterrows():
+        yahoo_stock = stock_yahoo[tick]
+        call_short_strike = needed_call["strike"]
+        put_short_strike = needed_put["strike"]
 
-            call_short_price = needed_call["bid"]
-            put_short_price = needed_put["bid"]
-            rate = 4.6
-            sigma = (atm_volatility_put + atm_volatility_call) / 2
-            days_to_expiration = close_exp_date
-            closing_days_array = [close_exp_date]
-            percentage_array = [50]
-            trials = 2000
-            proba_50 = shortStrangle(
-                current_price,
-                sigma,
-                rate,
-                trials,
-                days_to_expiration,
-                closing_days_array,
-                percentage_array,
-                call_short_strike,
-                call_short_price,
-                put_short_strike,
-                put_short_price,
-                yahoo_stock,
-            )
-            print(proba_50)
-            monte_carlo_proba_50.append(proba_50)
+        call_short_price = needed_call["bid"]
+        put_short_price = needed_put["bid"]
+        rate = 4.6
+        sigma = (atm_volatility_put + atm_volatility_call) / 2
+        days_to_expiration = close_exp_date
+        closing_days_array = [close_exp_date]
+        percentage_array = [50]
+        trials = 2000
+        proba_50 = shortStrangle(
+            current_price,
+            sigma,
+            rate,
+            trials,
+            days_to_expiration,
+            closing_days_array,
+            percentage_array,
+            call_short_strike,
+            call_short_price,
+            put_short_strike,
+            put_short_price,
+            yahoo_stock,
+        )
+        print(proba_50)
+        monte_carlo_proba_50.append(proba_50)
 
-            strangle_pop_50 = return_50 * proba_50
+        strangle_pop_50 = return_50 * proba_50
 
-        else:
-            strangle_pop_50 = np.nan
+        # else:
+        #     strangle_pop_50 = np.nan
 
     except Exception as err:
         strangle_pop_50 = "EMPTY"

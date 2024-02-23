@@ -125,7 +125,7 @@ if __name__ == "__main__":
     exp_date_df["Days_to_exp"] = (
         exp_date_df["expirations"] - datetime.datetime.now()
     ).dt.days
-    days_to_exp = nearest_equal_abs(exp_date_df["Days_to_exp"], 300)
+    days_to_exp = nearest_equal_abs(exp_date_df["Days_to_exp"], 45)
     needed_exp_date = (
         exp_date_df[exp_date_df["Days_to_exp"] == days_to_exp]["expirations"]
         .reset_index(drop=True)

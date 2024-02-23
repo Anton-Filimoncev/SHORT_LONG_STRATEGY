@@ -129,66 +129,66 @@ def get_data_and_calc_mprp_call(pool_input):
     KEY = "ckZsUXdiMTZEZVQ3a25TVEFtMm9SeURsQ1RQdk5yWERHS0RXaWNpWVJ2cz0"
     try:
         start_df, stock_yahoo_short = pool_input
-        if int(start_df['IV DIA year']) >= 2:
-            tick = start_df['Symbol']
-            current_price = start_df['Current Price']
-            hv = start_df['HV 100']
-            print(f'---------    {tick}')
-            # ----------- get Exp date list  -----------------
+        # if int(start_df['IV DIA year']) >= 2:
+        tick = start_df['Symbol']
+        current_price = start_df['Current Price']
+        # hv = start_df['HV 100']
+        print(f'---------    {tick}')
+        # ----------- get Exp date list  -----------------
 
-            url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
-            response_exp = requests.request("GET", url_exp).json()
-            exp_date_df = pd.DataFrame(response_exp)
-            exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
-            exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
-            days_to_exp = nearest_equal_abs(exp_date_df['Days_to_exp'], 300)
-            needed_exp_date = \
-            exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp]['expirations'].reset_index(drop=True).iloc[
-                0].date()
+        url_exp = f"https://api.marketdata.app/v1/options/expirations/{tick}/?token={KEY}"
+        response_exp = requests.request("GET", url_exp).json()
+        exp_date_df = pd.DataFrame(response_exp)
+        exp_date_df['expirations'] = pd.to_datetime(exp_date_df['expirations'])
+        exp_date_df['Days_to_exp'] = (exp_date_df['expirations'] - datetime.datetime.now()).dt.days
+        days_to_exp = nearest_equal_abs(exp_date_df['Days_to_exp'], 45)
+        needed_exp_date = \
+        exp_date_df[exp_date_df['Days_to_exp'] == days_to_exp]['expirations'].reset_index(drop=True).iloc[
+            0].date()
 
-            # ----------- Chains -----------------
-            url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&side=call&token={KEY}"
-            response_chains = requests.request("GET", url).json()
-            chains = pd.DataFrame(response_chains)
-            chains = chains[chains['strike'] < current_price * 1.2]
-            chains = chains[chains['strike'] > current_price * 0.8].reset_index(drop=True)
+        # ----------- Chains -----------------
+        url = f"https://api.marketdata.app/v1/options/chain/{tick}/?expiration={needed_exp_date}&side=call&token={KEY}"
+        response_chains = requests.request("GET", url).json()
+        chains = pd.DataFrame(response_chains)
+        chains = chains[chains['strike'] < current_price * 1.2]
+        chains = chains[chains['strike'] > current_price * 0.8].reset_index(drop=True)
 
-            # OTM VALUE считается как =IF(STRIKE<PRICE, 0 ,STRIKE-PRICE)
+        # OTM VALUE считается как =IF(STRIKE<PRICE, 0 ,STRIKE-PRICE)
 
-            # print(chains.columns)
-            close_exp_date = days_to_exp
+        # print(chains.columns)
+        close_exp_date = days_to_exp
 
-            otm_value = np.where(chains['strike'] < current_price, 0, chains['strike'] - current_price)
-            # print('otm_value', otm_value)
-            # Для каждого страйка считаем MPRETURN по формуле (PUT BID)/MARGIN
-            chains['Margin'] = np.where((chains['strike'] * 0.1) > (current_price * 0.2 - otm_value),
-                                        (chains['strike'] * 0.1), (current_price * 0.2 - otm_value))
-            chains['MP_RETURN'] = (chains['bid']/2) / chains['Margin']
-            # chains['Below End Price'] = calculate_probability(stock_yahoo_short[tick], 10000, days_to_exp, chains['strike'].values.tolist())
-            # chains['MPRP_CALL'] = chains['Below End Price'] * chains['MP_RETURN']
-            monte_carlo_proba_50 = []
+        otm_value = np.where(chains['strike'] < current_price, 0, chains['strike'] - current_price)
+        # print('otm_value', otm_value)
+        # Для каждого страйка считаем MPRETURN по формуле (PUT BID)/MARGIN
+        chains['Margin'] = np.where((chains['strike'] * 0.1) > (current_price * 0.2 - otm_value),
+                                    (chains['strike'] * 0.1), (current_price * 0.2 - otm_value))
+        chains['MP_RETURN'] = (chains['bid']/2) / chains['Margin']
+        # chains['Below End Price'] = calculate_probability(stock_yahoo_short[tick], 10000, days_to_exp, chains['strike'].values.tolist())
+        # chains['MPRP_CALL'] = chains['Below End Price'] * chains['MP_RETURN']
+        monte_carlo_proba_50 = []
 
-            atm_strike = nearest_equal_abs(chains['strike'], current_price)
-            atm_volatility = chains[chains['strike'] == atm_strike]['iv'].values[0] * 100
+        atm_strike = nearest_equal_abs(chains['strike'], current_price)
+        atm_volatility = chains[chains['strike'] == atm_strike]['iv'].values[0] * 100
 
-            for index, row in chains.iterrows():
-                yahoo_stock = stock_yahoo_short[tick]
-                short_strike = row['strike']
-                short_price = row['bid']
-                rate = 4.6
-                sigma = atm_volatility
-                days_to_expiration = close_exp_date
-                closing_days_array = [close_exp_date]
-                percentage_array = [50]
-                trials = 2000
-                proba_50 = shortCall(current_price, sigma, rate, trials, days_to_expiration,
-                                  closing_days_array, percentage_array, short_strike, short_price, yahoo_stock)
-                monte_carlo_proba_50.append(proba_50)
+        for index, row in chains.iterrows():
+            yahoo_stock = stock_yahoo_short[tick]
+            short_strike = row['strike']
+            short_price = row['bid']
+            rate = 4.6
+            sigma = atm_volatility
+            days_to_expiration = close_exp_date
+            closing_days_array = [close_exp_date]
+            percentage_array = [50]
+            trials = 2000
+            proba_50 = shortCall(current_price, sigma, rate, trials, days_to_expiration,
+                              closing_days_array, percentage_array, short_strike, short_price, yahoo_stock)
+            monte_carlo_proba_50.append(proba_50)
 
-            mprp_call = chains['MP_RETURN'] * np.array(monte_carlo_proba_50)
-            mprp_call = mprp_call.max()
-        else:
-            mprp_call = np.nan
+        mprp_call = chains['MP_RETURN'] * np.array(monte_carlo_proba_50)
+        mprp_call = mprp_call.max()
+        # else:
+        #     mprp_call = np.nan
 
     except Exception as err:
         print(err)
