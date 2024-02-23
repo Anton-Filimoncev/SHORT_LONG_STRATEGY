@@ -50,7 +50,7 @@ def putCalendar(underlying, sigma_short, sigma_long, rate, trials, days_to_expir
     min_profit = np.array(min_profit)
 
     try:
-        pop, pop_error, avg_dtc, avg_dtc_error = monteCarlo(underlying, rate, sigma_short, sigma_long,
+        pop, pop_error, avg_dtc, avg_dtc_error, cvar = monteCarlo(underlying, rate, sigma_short, sigma_long,
                                                             days_to_expiration_short, days_to_expiration_long,
                                                             closing_days_array, trials, initial_credit, min_profit,
                                                             strikes, bsm_debit, yahoo_stock)
@@ -71,4 +71,4 @@ def putCalendar(underlying, sigma_short, sigma_long, rate, trials, days_to_expir
 
     print(response)
 
-    return pop[0] / 100, avg_dtc
+    return pop[0] / 100, avg_dtc, cvar*100

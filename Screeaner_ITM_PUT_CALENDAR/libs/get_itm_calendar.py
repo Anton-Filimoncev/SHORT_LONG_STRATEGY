@@ -379,7 +379,7 @@ def get_data_and_calc_itm_calendar(pool_input):
         print('days_to_exp_short', days_to_exp_short)
         print('days_to_exp_long', days_to_exp_long)
 
-        proba_30, avg_dtc = get_proba_30_calendar(current_price, stock_yahoo_short[tick], needed_long['strike'], needed_long['ask'],
+        proba_30, avg_dtc, cvar = get_proba_30_calendar(current_price, stock_yahoo_short[tick], needed_long['strike'], needed_long['ask'],
                               needed_short['strike'], needed_short['bid'],  needed_short['iv']*100, needed_long['iv']*100,
                                                   days_to_exp_short, needed_long['Days_to_exp'], RISK_RATE)
 
@@ -391,10 +391,10 @@ def get_data_and_calc_itm_calendar(pool_input):
 
     except Exception as err:
         print(err)
-        RR, needed_strike_sell, proba_30, expected_return = np.nan, np.nan, np.nan, np.nan
+        RR, needed_strike_sell, proba_30, expected_return, cvar = np.nan, np.nan, np.nan, np.nan, np.nan
         pass
 
-    return RR, needed_strike_sell, proba_30, expected_return
+    return RR, needed_strike_sell, proba_30, expected_return, cvar
 
 
 def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RATE):
@@ -405,7 +405,7 @@ def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RAT
     with Pool(poll_num) as p:
         itm_calendar_out = p.map(get_data_and_calc_itm_calendar, [(active_stock_df.iloc[i], stock_yahoo, RISK_RATE) for i in range(len(active_stock_df))])
 
-    RR, needed_strike_sell, proba_30, expected_return = zip(*itm_calendar_out)
+    RR, needed_strike_sell, proba_30, expected_return, cvar = zip(*itm_calendar_out)
     RR = np.array([*RR])
     RR = np.reshape(RR, len(RR))
     needed_strike_sell = np.array([*needed_strike_sell])
@@ -414,6 +414,8 @@ def itm_calendar_run(active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RAT
     proba_30 = np.reshape(proba_30, len(proba_30))
     expected_return = np.array([*expected_return])
     expected_return = np.reshape(expected_return, len(expected_return))
+    cvar = np.array([*cvar])
+    cvar = np.reshape(cvar, len(cvar))
 
 
-    return RR, needed_strike_sell, proba_30, expected_return
+    return RR, needed_strike_sell, proba_30, expected_return, cvar

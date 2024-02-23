@@ -125,7 +125,7 @@ if __name__ == "__main__":
     print(active_stock_df['HV 100'])
 
     # Для тикеров с 1 первым диапазоном и релативным регтаймом -1 - собираем медвежий календарь
-    RR, needed_strike_sell, proba_30, expected_return = itm_calendar_run(
+    RR, needed_strike_sell, proba_30, expected_return, cvar = itm_calendar_run(
         active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RATE
     )
 
@@ -134,6 +134,7 @@ if __name__ == "__main__":
     active_stock_df["RR"] = RR
     active_stock_df["Proba 30"] = proba_30
     active_stock_df["Expected Return"] = expected_return
+    active_stock_df["CVAR"] = cvar
 
     momentum = get_momentum_run(stock_yahoo, tick_list)
 
