@@ -129,7 +129,6 @@ if __name__ == "__main__":
         active_stock_df, stock_yahoo, tick_list, poll_num, RISK_RATE
     )
 
-
     active_stock_df["Strike"] = needed_strike_sell
     active_stock_df["RR"] = RR
     active_stock_df["Proba 30"] = proba_30

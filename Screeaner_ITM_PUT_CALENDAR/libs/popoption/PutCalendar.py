@@ -61,7 +61,6 @@ def putCalendar(underlying, sigma_short, sigma_long, rate, trials, days_to_expir
     #                                                         days_to_expiration_short, days_to_expiration_long,
     #                                                         closing_days_array, trials, initial_credit, min_profit,
     #                                                         strikes, bsm_debit, yahoo_stock)
-
     response = {
         "pop": pop,
         "pop_error": pop_error,
